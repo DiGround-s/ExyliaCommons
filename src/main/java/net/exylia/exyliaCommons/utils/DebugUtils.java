@@ -1,9 +1,15 @@
 package net.exylia.exyliaCommons.utils;
 
 
-import net.exylia.exyliaCommons.ExyliaCommons;
+import org.bukkit.plugin.java.JavaPlugin;
 
 public class DebugUtils {
+    private final JavaPlugin plugin;
+
+    public DebugUtils(JavaPlugin plugin) {
+        this.plugin = plugin;
+    }
+
     // Colores ANSI estándar
     public static final String BLACK = "\u001B[30m";
     public static final String RED = "\u001B[31m";
@@ -51,17 +57,17 @@ public class DebugUtils {
     public static final String REVERSED = "\u001B[7m";
 
 
-    public static void logDebug(Boolean enabled, String message){
+    public void logDebug(Boolean enabled, String message){
         if (!enabled) return;
-        ExyliaCommons.getInstance().getLogger().info(BLACK + BACKGROUND_WHITE + "[DEBUG] " + message);
+        plugin.getLogger().info(BLACK + BACKGROUND_WHITE + "[DEBUG] " + message);
     }
-    public static void logError(String message){
-        ExyliaCommons.getInstance().getLogger().severe(BRIGHT_RED + "[ERROR] " + message);
+    public void logError(String message){
+        plugin.getLogger().severe(BRIGHT_RED + "[ERROR] " + message);
     }
-    public static void logWarn(String message){
-        ExyliaCommons.getInstance().getLogger().warning(BRIGHT_YELLOW + "[WARN] " + message);
+    public void logWarn(String message){
+        plugin.getLogger().warning(BRIGHT_YELLOW + "[WARN] " + message);
     }
-    public static void logInfo(String message){
-        ExyliaCommons.getInstance().getLogger().info(BRIGHT_CYAN + "[INFO] " + message);
+    public void logInfo(String message){
+        plugin.getLogger().info(BRIGHT_CYAN + "[INFO] " + message);
     }
 }

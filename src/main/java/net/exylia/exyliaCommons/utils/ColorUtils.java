@@ -9,15 +9,23 @@ import net.kyori.adventure.title.Title;
 import net.md_5.bungee.api.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.bukkit.ChatColor.translateAlternateColorCodes;
+
 public class ColorUtils {
+    private final JavaPlugin plugin;
+    public ColorUtils(JavaPlugin plugin) {
+        this.plugin = plugin;
 
-    private static final Map<Character, String> COLOR_MAP;
+    }
 
-    static {
+    private final Map<Character, String> COLOR_MAP;
+
+     {
         Map<Character, String> map = new HashMap<>();
         map.put('0', "<black>");
         map.put('1', "<dark_blue>");
@@ -44,7 +52,7 @@ public class ColorUtils {
         COLOR_MAP = Map.copyOf(map);
     }
 
-    public static Component translateColors(String message) {
+    public Component translateColors(String message) {
         if (message == null || !message.contains("&")) {
             assert message != null;
             return MiniMessage.miniMessage().deserialize(message).decoration(TextDecoration.ITALIC, false);
@@ -73,35 +81,31 @@ public class ColorUtils {
                 .decoration(TextDecoration.ITALIC, false);
     }
 
-    public static String oldTranslateColors(String message) {
-        return ChatColor.translateAlternateColorCodes('&', GradientUtils.applyGradientsAndHex(message));
-    }
-
-    public static void sendPlayerMessage(Player player, String message) {
-        Component component = ColorUtils.translateColors(message);
+    public void sendPlayerMessage(Player player, String message) {
+        Component component = translateColors(message);
         player.sendMessage(component);
     }
 
-    public static void sendSenderMessage(CommandSender sender, String message) {
-        Component component = ColorUtils.translateColors(message);
+    public void sendSenderMessage(CommandSender sender, String message) {
+        Component component = translateColors(message);
         sender.sendMessage(component);
     }
 
-    public static void showPlayerBossbar(Player player, BossBar bossBar) {
+    public void showPlayerBossbar(Player player, BossBar bossBar) {
         player.showBossBar(bossBar);
     }
 
-    public static void hidePlayerBossbar(Player player, BossBar bossBar) {
+    public void hidePlayerBossbar(Player player, BossBar bossBar) {
         player.hideBossBar(bossBar);
     }
 
-    public static void sendPlayerTitle(Player player, Title title) {
+    public void sendPlayerTitle(Player player, Title title) {
         player.showTitle(title);
     }
 
-    public static void sendBroadcastMessage(String message) {
-        for (Player player : ExyliaCommons.getInstance().getServer().getOnlinePlayers()) {
-            player.sendMessage(ColorUtils.translateColors(message));
+    public void sendBroadcastMessage(String message) {
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            player.sendMessage(translateColors(message));
         }
     }
 }
