@@ -3,7 +3,7 @@ plugins {
     id("maven-publish")
 }
 
-group = "com.github.DiGround-s" // Cambia esto por tu usuario de GitHub
+group = "com.github.DiGround-s"
 version = "1.0.0"
 
 repositories {
@@ -30,11 +30,18 @@ java {
 
 publishing {
     publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
-            groupId = "com.github.DiGround-s" // Cambia esto por tu usuario de GitHub
-            artifactId = "ExyliaCommons"
-            version = "1.0.0"
+        mavenJava(MavenPublication) {
+            from components.java
+
+            groupId = 'com.github.DiGround-s'
+            artifactId = 'ExyliaCommons'
+            version = '1.0.0'
+        }
+    }
+
+    repositories {
+        maven {
+            url = uri("https://jitpack.io")
         }
     }
 }
