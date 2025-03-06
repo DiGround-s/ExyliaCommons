@@ -1,0 +1,40 @@
+plugins {
+    id("java-library")
+    id("maven-publish")
+}
+
+group = "com.github.DiGround-s" // Cambia esto por tu usuario de GitHub
+version = "1.0.0"
+
+repositories {
+    mavenCentral()
+    maven {
+        name = "papermc-repo"
+        url = "https://repo.papermc.io/repository/maven-public/"
+    }
+    maven {
+        name = "sonatype"
+        url = "https://oss.sonatype.org/content/groups/public/"
+    }
+}
+
+dependencies {
+    compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
+    implementation("net.kyori:adventure-api:4.14.0")
+    implementation("net.kyori:adventure-platform-bukkit:4.3.2")
+}
+
+java {
+    withSourcesJar()
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+            groupId = "com.github.DiGround-s" // Cambia esto por tu usuario de GitHub
+            artifactId = "ExyliaCommons"
+            version = "1.0.0"
+        }
+    }
+}

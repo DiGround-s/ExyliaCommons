@@ -1,0 +1,6 @@
+name: ExyliaCommons
+version: '1.0-SNAPSHOT'
+main: net.exylia.exyliaCommons.ExyliaCommons
+api-version: '1.18'
+author: DiGround
+description: Librería común para plugins de Exylia
