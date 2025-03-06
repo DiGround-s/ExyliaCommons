@@ -12,9 +12,9 @@ public final class ExyliaCommons {
     private ExyliaCommons() {
     }
 
-    public JavaPlugin getInstance() {
+    public static JavaPlugin getInstance() {
         if (instance == null) {
-            throw new IllegalStateException("ExyliaCommons no ha sido inicializado. Llama a ExyliaCommons.initialize(plugin) desde el plugin principal.");
+            throw new IllegalStateException("ExyliaCommons no ha sido inicializado.");
         }
         return instance;
     }
