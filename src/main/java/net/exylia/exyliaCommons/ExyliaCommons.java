@@ -19,7 +19,7 @@ public final class ExyliaCommons {
         return instance;
     }
 
-    public void initialize(JavaPlugin plugin) {
+    public static void initialize(JavaPlugin plugin) {
         if (instance == null) {
             instance = plugin;
         } else {
