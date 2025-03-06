@@ -1,32 +1,31 @@
 package net.exylia.exyliaCommons;
 
-import net.exylia.exyliaCommons.managers.ConfigManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-public final class ExyliaCommons extends JavaPlugin {
-
+public final class ExyliaCommons extends JavaPlugin{
     private static ExyliaCommons instance;
-    private ConfigManager configManager;
+    private JavaPlugin plugin;
 
-    @Override
-    public void onEnable() {
-        instance = this;
-        configManager = new ConfigManager(this, List.of("config"));
-        getLogger().info("ExyliaCommons ha sido cargado como librería.");
-    }
-
-    @Override
-    public void onDisable() {
-        getLogger().info("ExyliaCommons ha sido deshabilitado.");
+    private ExyliaCommons(JavaPlugin plugin) {
+        this.plugin = plugin;
     }
 
     public static ExyliaCommons getInstance() {
+        if (instance == null) {
+            throw new IllegalStateException("ExyliaCommons no ha sido inicializado.");
+        }
         return instance;
     }
 
-    public ConfigManager getConfigManager() { return configManager; }
+    public static void initialize(JavaPlugin plugin) {
+        if (instance == null) {
+            instance = new ExyliaCommons(plugin);
+        } else {
+            throw new IllegalStateException("ExyliaCommons ya ha sido inicializado.");
+        }
+    }
+
+    public JavaPlugin getPlugin() {
+        return plugin;
+    }
 }
