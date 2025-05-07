@@ -1,0 +1,56 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+}
+
+group = 'net.exylia'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+    maven { url 'https://repo.papermc.io/repository/maven-public/' }
+    maven {
+        name = "sonatype"
+        url = "https://oss.sonatype.org/content/groups/public/"
+    }
+}
+
+dependencies {
+    compileOnly 'io.papermc.paper:paper-api:1.19.4-R0.1-SNAPSHOT'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+// Configuración para publicar la biblioteca en un repositorio local
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
+}
+
+// Configuración para crear un JAR con todas las dependencias
+shadowJar {
+    archiveClassifier.set('')
+    // Incluye las dependencias de Adventure API
+    dependencies {
+        include(dependency('net.kyori:adventure-api'))
+        include(dependency('net.kyori:adventure-text-minimessage'))
+        include(dependency('net.kyori:adventure-text-serializer-legacy'))
+    }
+    // Relocaliza las dependencias para evitar conflictos
+//    relocate 'net.kyori', 'net.exylia.commons.libs.kyori'
+}
+
+// Configura la tarea build para que use shadowJar
+build {
+    dependsOn shadowJar
+}
