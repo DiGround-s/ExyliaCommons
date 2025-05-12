@@ -1,5 +1,6 @@
 package net.exylia.commons.utils;
 
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -10,15 +11,25 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
- * Utilidades para manejar colores y componentes de texto
+ * Utilidades optimizadas para manejar colores y componentes de texto
+ * con soporte para operaciones asíncronas
  */
 public class ColorUtils {
 
     private static final Map<Character, String> COLOR_MAP;
+
+    // Cache para componentes comunes
+    private static final Map<String, Component> COMPONENT_CACHE = new ConcurrentHashMap<>();
+    private static final int MAX_CACHE_SIZE = 500;
 
     static {
         Map<Character, String> map = new HashMap<>();
@@ -53,9 +64,27 @@ public class ColorUtils {
      * @return Componente con colores y formato aplicados
      */
     public static Component translateColors(String message) {
-        if (message == null || !message.contains("&")) {
-            assert message != null;
-            return MiniMessage.miniMessage().deserialize(message).decoration(TextDecoration.ITALIC, false);
+        if (message == null) {
+            return Component.empty();
+        }
+
+        // Verificar caché primero
+        Component cached = COMPONENT_CACHE.get(message);
+        if (cached != null) {
+            return cached;
+        }
+
+        // Si no tiene códigos de color para procesar
+        if (!message.contains("&")) {
+            Component component = MiniMessage.miniMessage().deserialize(message)
+                    .decoration(TextDecoration.ITALIC, false);
+
+            // Guardar en caché si no es demasiado grande
+            if (message.length() <= 100) {
+                cacheComponent(message, component);
+            }
+
+            return component;
         }
 
         StringBuilder builder = new StringBuilder(message.length() + 16);
@@ -77,8 +106,44 @@ public class ColorUtils {
             }
         }
 
-        return MiniMessage.miniMessage().deserialize(builder.toString())
+        Component result = MiniMessage.miniMessage().deserialize(builder.toString())
                 .decoration(TextDecoration.ITALIC, false);
+
+        // Guardar en caché si no es demasiado grande
+        if (message.length() <= 100) {
+            cacheComponent(message, result);
+        }
+
+        return result;
+    }
+
+    /**
+     * Traduce códigos de color asíncronamente
+     * @param message Mensaje con códigos de color
+     * @return CompletableFuture con el componente procesado
+     */
+    public static CompletableFuture<Component> translateColorsAsync(String message) {
+        return CompletableFuture.supplyAsync(() -> translateColors(message));
+    }
+
+    /**
+     * Traduce una lista de mensajes a componentes
+     * @param messages Lista de mensajes con códigos de color
+     * @return Lista de componentes procesados
+     */
+    public static List<Component> translateColors(List<String> messages) {
+        return messages.stream()
+                .map(ColorUtils::translateColors)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Traduce una lista de mensajes asíncronamente
+     * @param messages Lista de mensajes con códigos de color
+     * @return CompletableFuture con la lista de componentes
+     */
+    public static CompletableFuture<List<Component>> translateColorsAsync(List<String> messages) {
+        return CompletableFuture.supplyAsync(() -> translateColors(messages));
     }
 
     /**
@@ -130,8 +195,19 @@ public class ColorUtils {
      * @param message Mensaje con códigos de color
      */
     public static void sendPlayerMessage(Player player, String message) {
-        Component component = ColorUtils.translateColors(message);
+        Component component = translateColors(message);
         player.sendMessage(component);
+    }
+
+    /**
+     * Envía un mensaje con colores a un jugador asíncronamente
+     * @param player Jugador destinatario
+     * @param message Mensaje con códigos de color
+     * @return CompletableFuture que completa cuando se envía el mensaje
+     */
+    public static CompletableFuture<Void> sendPlayerMessageAsync(Player player, String message) {
+        return translateColorsAsync(message)
+                .thenAccept(player::sendMessage);
     }
 
     /**
@@ -140,8 +216,19 @@ public class ColorUtils {
      * @param message Mensaje con códigos de color
      */
     public static void sendSenderMessage(CommandSender sender, String message) {
-        Component component = ColorUtils.translateColors(message);
+        Component component = translateColors(message);
         sender.sendMessage(component);
+    }
+
+    /**
+     * Envía un mensaje con colores a un CommandSender asíncronamente
+     * @param sender Destinatario del mensaje
+     * @param message Mensaje con códigos de color
+     * @return CompletableFuture que completa cuando se envía el mensaje
+     */
+    public static CompletableFuture<Void> sendSenderMessageAsync(CommandSender sender, String message) {
+        return translateColorsAsync(message)
+                .thenAccept(sender::sendMessage);
     }
 
     /**
@@ -176,9 +263,22 @@ public class ColorUtils {
      * @param bossBar Barra de jefe a mostrar
      */
     public static void showPlayersBossBar(BossBar bossBar) {
-        for (Player players : Bukkit.getOnlinePlayers()) {
-            players.showBossBar(bossBar);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.showBossBar(bossBar);
         }
+    }
+
+    /**
+     * Muestra una barra de jefe a todos los jugadores asíncronamente
+     * @param bossBar Barra de jefe a mostrar
+     * @return CompletableFuture que completa cuando la barra ha sido mostrada
+     */
+    public static CompletableFuture<Void> showPlayersBossBarAsync(BossBar bossBar) {
+        return CompletableFuture.runAsync(() -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                player.showBossBar(bossBar);
+            }
+        });
     }
 
     /**
@@ -195,9 +295,22 @@ public class ColorUtils {
      * @param bossBar Barra de jefe a ocultar
      */
     public static void hidePlayersBossBar(BossBar bossBar) {
-        for (Player players : Bukkit.getOnlinePlayers()) {
-            players.hideBossBar(bossBar);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.hideBossBar(bossBar);
         }
+    }
+
+    /**
+     * Oculta una barra de jefe para todos los jugadores asíncronamente
+     * @param bossBar Barra de jefe a ocultar
+     * @return CompletableFuture que completa cuando la barra ha sido ocultada
+     */
+    public static CompletableFuture<Void> hidePlayersBossBarAsync(BossBar bossBar) {
+        return CompletableFuture.runAsync(() -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                player.hideBossBar(bossBar);
+            }
+        });
     }
 
     /**
@@ -210,11 +323,108 @@ public class ColorUtils {
     }
 
     /**
+     * Crea un título a partir de mensajes con códigos de color
+     * @param main Texto principal del título
+     * @param subtitle Subtítulo
+     * @param fadeIn Tiempo de aparición (ticks)
+     * @param stay Tiempo que permanece visible (ticks)
+     * @param fadeOut Tiempo de desaparición (ticks)
+     * @return Objeto Title configurado
+     */
+    public static Title createTitle(String main, String subtitle, int fadeIn, int stay, int fadeOut) {
+        Component mainComponent = translateColors(main);
+        Component subtitleComponent = translateColors(subtitle);
+
+        return Title.title(
+                mainComponent,
+                subtitleComponent,
+                Title.Times.of(
+                        Duration.ofMillis(fadeIn * 50L),
+                        Duration.ofMillis(stay * 50L),
+                        Duration.ofMillis(fadeOut * 50L)
+                )
+        );
+    }
+
+    /**
+     * Crea y muestra un título a un jugador en una sola operación
+     * @param player Jugador destinatario
+     * @param main Texto principal del título
+     * @param subtitle Subtítulo
+     * @param fadeIn Tiempo de aparición (ticks)
+     * @param stay Tiempo que permanece visible (ticks)
+     * @param fadeOut Tiempo de desaparición (ticks)
+     */
+    public static void sendPlayerTitle(Player player, String main, String subtitle,
+                                       int fadeIn, int stay, int fadeOut) {
+        Title title = createTitle(main, subtitle, fadeIn, stay, fadeOut);
+        player.showTitle(title);
+    }
+
+    /**
      * Envía un mensaje con colores a todos los jugadores
      * @param message Mensaje con códigos de color
      */
     public static void sendBroadcastMessage(String message) {
-        Component component = ColorUtils.translateColors(message);
+        Component component = translateColors(message);
         Bukkit.broadcast(component);
+    }
+
+    /**
+     * Envía un mensaje con colores a todos los jugadores asíncronamente
+     * @param message Mensaje con códigos de color
+     * @return CompletableFuture que completa cuando el mensaje ha sido enviado
+     */
+    public static CompletableFuture<Void> sendBroadcastMessageAsync(String message) {
+        return translateColorsAsync(message)
+                .thenAccept(Bukkit::broadcast);
+    }
+
+    /**
+     * Envía un mensaje a múltiples audiencias de forma eficiente
+     * @param audiences Lista de audiencias (jugadores, consola, etc.)
+     * @param message Mensaje con códigos de color
+     */
+    public static void sendToAudiences(List<? extends Audience> audiences, String message) {
+        Component component = translateColors(message);
+        audiences.forEach(audience -> audience.sendMessage(component));
+    }
+
+    /**
+     * Envía un mensaje a múltiples audiencias de forma eficiente y asíncrona
+     * @param audiences Lista de audiencias (jugadores, consola, etc.)
+     * @param message Mensaje con códigos de color
+     * @return CompletableFuture que completa cuando todos los mensajes han sido enviados
+     */
+    public static CompletableFuture<Void> sendToAudiencesAsync(List<? extends Audience> audiences, String message) {
+        return translateColorsAsync(message)
+                .thenAccept(component ->
+                        audiences.forEach(audience -> audience.sendMessage(component))
+                );
+    }
+
+    /**
+     * Guarda un componente en caché para su reutilización
+     * @param key Mensaje original como clave
+     * @param component Componente procesado
+     */
+    private static void cacheComponent(String key, Component component) {
+        // Evitar desbordamiento de caché
+        if (COMPONENT_CACHE.size() >= MAX_CACHE_SIZE) {
+            // Simple política de eliminación: eliminar una entrada aleatoria
+            if (!COMPONENT_CACHE.isEmpty()) {
+                String randomKey = COMPONENT_CACHE.keySet().iterator().next();
+                COMPONENT_CACHE.remove(randomKey);
+            }
+        }
+
+        COMPONENT_CACHE.put(key, component);
+    }
+
+    /**
+     * Limpia la caché de componentes
+     */
+    public static void clearCache() {
+        COMPONENT_CACHE.clear();
     }
 }
