@@ -14,10 +14,12 @@ repositories {
         name = "sonatype"
         url = "https://oss.sonatype.org/content/groups/public/"
     }
+    maven { url = 'https://repo.extendedclip.com/content/repositories/placeholderapi/' }
 }
 
 dependencies {
     compileOnly 'io.papermc.paper:paper-api:1.19.4-R0.1-SNAPSHOT'
+    compileOnly 'me.clip:placeholderapi:2.11.5'
 }
 
 java {
@@ -25,7 +27,6 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-// Configuración para publicar la biblioteca en un repositorio local
 publishing {
     publications {
         mavenJava(MavenPublication) {
@@ -37,20 +38,15 @@ publishing {
     }
 }
 
-// Configuración para crear un JAR con todas las dependencias
 shadowJar {
     archiveClassifier.set('')
-    // Incluye las dependencias de Adventure API
     dependencies {
         include(dependency('net.kyori:adventure-api'))
         include(dependency('net.kyori:adventure-text-minimessage'))
         include(dependency('net.kyori:adventure-text-serializer-legacy'))
     }
-    // Relocaliza las dependencias para evitar conflictos
-//    relocate 'net.kyori', 'net.exylia.commons.libs.kyori'
 }
 
-// Configura la tarea build para que use shadowJar
 build {
     dependsOn shadowJar
 }

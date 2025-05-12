@@ -1,0 +1,338 @@
+package net.exylia.commons.menu;
+
+import net.exylia.commons.utils.ColorUtils;
+import me.clip.placeholderapi.PlaceholderAPI;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemFlag;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+import java.util.function.Consumer;
+
+/**
+ * Representa un ítem interactivo en un menú
+ */
+public class MenuItem {
+    private ItemStack itemStack;
+    private Consumer<MenuClickInfo> clickHandler;
+    private String menuItemId;
+    private String rawName;
+    private List<String> rawLore;
+    private boolean usePlaceholders = false;
+    private boolean dynamicUpdate = false;
+    private long updateInterval = 20L; // 1 segundo por defecto
+
+    /**
+     * Constructor del ítem de menú
+     * @param material Material del ítem
+     */
+    public MenuItem(Material material) {
+        this.itemStack = new ItemStack(material);
+        this.menuItemId = UUID.randomUUID().toString();
+    }
+
+    /**
+     * Constructor del ítem de menú
+     * @param itemStack ItemStack para usar directamente
+     */
+    public MenuItem(ItemStack itemStack) {
+        this.itemStack = itemStack.clone();
+        this.menuItemId = UUID.randomUUID().toString();
+    }
+
+    /**
+     * Establece el nombre del ítem
+     * @param name Nombre (admite códigos de color y placeholders)
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setName(String name) {
+        this.rawName = name;
+        ItemMeta meta = itemStack.getItemMeta();
+        meta.displayName(ColorUtils.translateColors(name));
+        itemStack.setItemMeta(meta);
+        return this;
+    }
+
+    /**
+     * Establece el nombre del ítem directamente con un componente
+     * @param name Componente de nombre ya formateado
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setName(Component name) {
+        ItemMeta meta = itemStack.getItemMeta();
+        meta.displayName(name);
+        itemStack.setItemMeta(meta);
+        return this;
+    }
+
+    /**
+     * Establece la descripción del ítem
+     * @param lore Líneas de descripción (admiten códigos de color y placeholders)
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setLore(String... lore) {
+        this.rawLore = Arrays.asList(lore);
+
+        List<Component> loreComponents = new ArrayList<>();
+        for (String line : lore) {
+            loreComponents.add(ColorUtils.translateColors(line));
+        }
+
+        ItemMeta meta = itemStack.getItemMeta();
+        meta.lore(loreComponents);
+        itemStack.setItemMeta(meta);
+        return this;
+    }
+
+    /**
+     * Establece la descripción del ítem directamente con componentes
+     * @param lore Lista de componentes de descripción ya formateados
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setLore(List<Component> lore) {
+        ItemMeta meta = itemStack.getItemMeta();
+        meta.lore(lore);
+        itemStack.setItemMeta(meta);
+        return this;
+    }
+
+    /**
+     * Establece la acción al hacer clic en el ítem
+     * @param clickHandler Manejador del clic
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setClickHandler(Consumer<MenuClickInfo> clickHandler) {
+        this.clickHandler = clickHandler;
+        return this;
+    }
+
+    /**
+     * Establece la cantidad del ítem
+     * @param amount Cantidad (1-64)
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setAmount(int amount) {
+        itemStack.setAmount(Math.max(1, Math.min(64, amount)));
+        return this;
+    }
+
+    /**
+     * Añade un brillo al ítem (encantamiento oculto)
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setGlowing(boolean glowing) {
+        ItemMeta meta = itemStack.getItemMeta();
+
+        if (glowing) {
+            meta.addEnchant(Enchantment.DURABILITY, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        } else {
+            meta.removeEnchant(Enchantment.DURABILITY);
+        }
+
+        itemStack.setItemMeta(meta);
+        return this;
+    }
+
+    /**
+     * Añade flags al ítem
+     * @param flags Flags a añadir
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem addItemFlags(ItemFlag... flags) {
+        ItemMeta meta = itemStack.getItemMeta();
+        meta.addItemFlags(flags);
+        itemStack.setItemMeta(meta);
+        return this;
+    }
+
+    /**
+     * Oculta todos los atributos del ítem
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem hideAllAttributes() {
+        ItemMeta meta = itemStack.getItemMeta();
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES,
+                ItemFlag.HIDE_DESTROYS,
+                ItemFlag.HIDE_DYE,
+                ItemFlag.HIDE_ENCHANTS,
+                ItemFlag.HIDE_PLACED_ON,
+                ItemFlag.HIDE_POTION_EFFECTS,
+                ItemFlag.HIDE_UNBREAKABLE);
+        itemStack.setItemMeta(meta);
+        return this;
+    }
+
+    /**
+     * Añade un identificador personalizado al ítem
+     * @param plugin Plugin para crear la clave
+     * @param key Nombre de la clave
+     * @param value Valor a guardar
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setNBTTag(JavaPlugin plugin, String key, String value) {
+        ItemMeta meta = itemStack.getItemMeta();
+        NamespacedKey namespacedKey = new NamespacedKey(plugin, key);
+        meta.getPersistentDataContainer().set(namespacedKey, PersistentDataType.STRING, value);
+        itemStack.setItemMeta(meta);
+        return this;
+    }
+
+    /**
+     * Obtiene un identificador personalizado del ítem
+     * @param plugin Plugin para crear la clave
+     * @param key Nombre de la clave
+     * @return Valor guardado o null si no existe
+     */
+    public String getNBTTag(JavaPlugin plugin, String key) {
+        ItemMeta meta = itemStack.getItemMeta();
+        NamespacedKey namespacedKey = new NamespacedKey(plugin, key);
+        return meta.getPersistentDataContainer().get(namespacedKey, PersistentDataType.STRING);
+    }
+
+    /**
+     * Establece el ID único del ítem en el menú
+     * @param id ID personalizado
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setId(String id) {
+        this.menuItemId = id;
+        return this;
+    }
+
+    /**
+     * Obtiene el ID único del ítem en el menú
+     * @return ID del ítem
+     */
+    public String getId() {
+        return menuItemId;
+    }
+
+    /**
+     * Obtiene el manejador de clics
+     * @return Manejador de clics
+     */
+    public Consumer<MenuClickInfo> getClickHandler() {
+        return clickHandler;
+    }
+
+    /**
+     * Obtiene el ItemStack asociado
+     * @return ItemStack del ítem
+     */
+    public ItemStack getItemStack() {
+        return itemStack.clone();
+    }
+
+    /**
+     * Clona el ítem
+     * @return Copia del ítem
+     */
+    public MenuItem clone() {
+        MenuItem clone = new MenuItem(this.itemStack.clone());
+        clone.clickHandler = this.clickHandler;
+        clone.menuItemId = this.menuItemId;
+        clone.rawName = this.rawName;
+        if (this.rawLore != null) {
+            clone.rawLore = new ArrayList<>(this.rawLore);
+        }
+        clone.usePlaceholders = this.usePlaceholders;
+        clone.dynamicUpdate = this.dynamicUpdate;
+        clone.updateInterval = this.updateInterval;
+        return clone;
+    }
+
+    /**
+     * Activa el uso de placeholders en el nombre y lore del ítem
+     * @param use true para activar placeholders, false para desactivarlos
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem usePlaceholders(boolean use) {
+        this.usePlaceholders = use;
+        return this;
+    }
+
+    /**
+     * Activa la actualización dinámica del ítem
+     * @param update true para activar actualización, false para desactivarla
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setDynamicUpdate(boolean update) {
+        this.dynamicUpdate = update;
+        return this;
+    }
+
+    /**
+     * Establece el intervalo de actualización del ítem
+     * @param ticks Intervalo en ticks
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setUpdateInterval(long ticks) {
+        this.updateInterval = Math.max(1, ticks);
+        return this;
+    }
+
+    /**
+     * Actualiza los placeholders del ítem para un jugador específico
+     * @param player Jugador para procesar los placeholders
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem updatePlaceholders(Player player) {
+        if (!usePlaceholders) return this;
+
+        ItemMeta meta = itemStack.getItemMeta();
+
+        // Actualizar nombre si existe
+        if (rawName != null && !rawName.isEmpty()) {
+            String processedName = PlaceholderAPI.setPlaceholders(player, rawName);
+            meta.displayName(ColorUtils.translateColors(processedName));
+        }
+
+        // Actualizar lore si existe
+        if (rawLore != null && !rawLore.isEmpty()) {
+            List<Component> loreComponents = new ArrayList<>();
+            for (String line : rawLore) {
+                String processedLine = PlaceholderAPI.setPlaceholders(player, line);
+                loreComponents.add(ColorUtils.translateColors(processedLine));
+            }
+            meta.lore(loreComponents);
+        }
+
+        itemStack.setItemMeta(meta);
+        return this;
+    }
+
+    /**
+     * Comprueba si el ítem usa placeholders
+     * @return true si usa placeholders
+     */
+    public boolean usesPlaceholders() {
+        return usePlaceholders;
+    }
+
+    /**
+     * Comprueba si el ítem debe actualizarse dinámicamente
+     * @return true si debe actualizarse
+     */
+    public boolean needsDynamicUpdate() {
+        return dynamicUpdate;
+    }
+
+    /**
+     * Obtiene el intervalo de actualización
+     * @return Intervalo en ticks
+     */
+    public long getUpdateInterval() {
+        return updateInterval;
+    }
+}
