@@ -6,8 +6,8 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Constructor de menús a partir de archivos de configuración
@@ -60,16 +60,77 @@ public class MenuBuilder {
             for (String itemKey : itemsSection.getKeys(false)) {
                 ConfigurationSection itemSection = itemsSection.getConfigurationSection(itemKey);
                 if (itemSection != null) {
-                    int slot = itemSection.getInt("slot", -1);
-                    if (slot >= 0 && slot < rows * 9) {
-                        MenuItem menuItem = buildMenuItem(itemSection);
-                        menu.setItem(slot, menuItem);
+                    MenuItem menuItem = buildMenuItem(itemSection);
+
+                    // Obtener los slots para este ítem
+                    List<Integer> slots = getItemSlots(itemSection, rows);
+
+                    // Colocar el ítem en todos los slots especificados
+                    for (int slot : slots) {
+                        if (slot >= 0 && slot < rows * 9) {
+                            menu.setItem(slot, menuItem);
+                        }
                     }
                 }
             }
         }
 
         return menu;
+    }
+
+    /**
+     * Obtiene todos los slots para un ítem según su configuración
+     * @param itemSection Sección de configuración del ítem
+     * @param rows Número de filas del menú para validación
+     * @return Lista de slots donde debe colocarse el ítem
+     */
+    private List<Integer> getItemSlots(ConfigurationSection itemSection, int rows) {
+        List<Integer> slots = new ArrayList<>();
+        int maxSlot = rows * 9 - 1;
+
+        // Comprobar formato de slot único (retrocompatibilidad)
+        if (itemSection.contains("slot")) {
+            int slot = itemSection.getInt("slot", -1);
+            if (slot >= 0 && slot <= maxSlot) {
+                slots.add(slot);
+            }
+        }
+
+        // Comprobar formato de rango "slots: 0-3"
+        if (itemSection.contains("slots") && itemSection.isString("slots")) {
+            String slotsRange = itemSection.getString("slots");
+            if (slotsRange != null && slotsRange.contains("-")) {
+                String[] range = slotsRange.split("-");
+                if (range.length == 2) {
+                    try {
+                        int start = Integer.parseInt(range[0].trim());
+                        int end = Integer.parseInt(range[1].trim());
+
+                        // Asegurar que el rango esté dentro de los límites
+                        start = Math.max(0, start);
+                        end = Math.min(maxSlot, end);
+
+                        for (int i = start; i <= end; i++) {
+                            slots.add(i);
+                        }
+                    } catch (NumberFormatException e) {
+                        // Ignorar formato inválido
+                    }
+                }
+            }
+        }
+
+        // Comprobar formato de lista "slots: [0,1,2,3]"
+        if (itemSection.contains("slots") && itemSection.isList("slots")) {
+            List<Integer> slotsList = itemSection.getIntegerList("slots");
+            for (int slot : slotsList) {
+                if (slot >= 0 && slot <= maxSlot) {
+                    slots.add(slot);
+                }
+            }
+        }
+
+        return slots;
     }
 
     /**
@@ -148,7 +209,11 @@ public class MenuBuilder {
         ConfigurationSection prevSection = menuSection.getConfigurationSection("prev_button");
         if (prevSection != null) {
             MenuItem prevButton = buildMenuItem(prevSection);
-            int prevSlot = prevSection.getInt("slot", rows * 9 - 9);
+
+            // Obtener slot(s) para el botón anterior
+            List<Integer> prevSlots = getItemSlots(prevSection, rows);
+            int prevSlot = prevSlots.isEmpty() ? (rows * 9 - 9) : prevSlots.get(0);
+
             paginationMenu.setPreviousPageButton(prevButton, prevSlot);
         }
 
@@ -156,7 +221,11 @@ public class MenuBuilder {
         ConfigurationSection nextSection = menuSection.getConfigurationSection("next_button");
         if (nextSection != null) {
             MenuItem nextButton = buildMenuItem(nextSection);
-            int nextSlot = nextSection.getInt("slot", rows * 9 - 1);
+
+            // Obtener slot(s) para el botón siguiente
+            List<Integer> nextSlots = getItemSlots(nextSection, rows);
+            int nextSlot = nextSlots.isEmpty() ? (rows * 9 - 1) : nextSlots.get(0);
+
             paginationMenu.setNextPageButton(nextButton, nextSlot);
         }
 
