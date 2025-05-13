@@ -1,5 +1,6 @@
 package net.exylia.commons.menu;
 
+import me.clip.placeholderapi.PlaceholderAPI;
 import net.exylia.commons.utils.ColorUtils;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -18,7 +19,7 @@ import java.util.function.Consumer;
  * Representa un menú interactivo
  */
 public class Menu {
-    private final Component title;
+    private Component title;
     private final int size;
     private final Map<Integer, MenuItem> items;
     private Inventory inventory;
@@ -31,6 +32,9 @@ public class Menu {
     private Player viewer;
     private Map<Integer, Long> itemUpdateTimes = new HashMap<>();
     private Map<Integer, Integer> itemTaskIds = new HashMap<>();
+    private String rawTitle;
+    private boolean usePlaceholdersInTitle = false;
+    private Object titlePlaceholderContext = null;
 
     /**
      * Constructor del menú
@@ -38,6 +42,7 @@ public class Menu {
      * @param rows Número de filas (1-6)
      */
     public Menu(String title, int rows) {
+        this.rawTitle = title;
         this.title = ColorUtils.translateColors(title);
         this.size = Math.max(9, Math.min(54, rows * 9)); // Entre 1 y 6 filas
         this.items = new HashMap<>();
@@ -177,13 +182,81 @@ public class Menu {
 
         itemTaskIds.put(slot, taskId);
     }
+    /**
+     * Activa el uso de placeholders en el título del menú
+     * @param use true para activar placeholders
+     * @return El mismo menú (para encadenamiento)
+     */
+    public Menu usePlaceholdersInTitle(boolean use) {
+        this.usePlaceholdersInTitle = use;
+        return this;
+    }
 
     /**
-     * Abre el menú para un jugador
-     * @param player Jugador al que mostrar el menú
+     * Establece un objeto de contexto para los placeholders del título
+     * @param context Objeto de contexto para placeholders personalizados
+     * @return El mismo menú (para encadenamiento)
      */
+    public Menu setTitlePlaceholderContext(Object context) {
+        this.titlePlaceholderContext = context;
+        return this;
+    }
+
+    /**
+     * Actualiza el título con placeholders para un jugador específico
+     * @param player Jugador para procesar los placeholders
+     * @return El mismo menú (para encadenamiento)
+     */
+    public Menu updateTitle(Player player) {
+        if (!usePlaceholdersInTitle || rawTitle == null) return this;
+
+        String processedTitle = rawTitle;
+
+        // Procesar placeholders personalizados primero
+        if (titlePlaceholderContext != null) {
+            processedTitle = CustomPlaceholderManager.process(processedTitle, titlePlaceholderContext);
+        }
+
+        // Luego procesar placeholders de PlaceholderAPI si está disponible
+        if (MenuManager.isPlaceholderAPIEnabled()) {
+            processedTitle = PlaceholderAPI.setPlaceholders(player, processedTitle);
+        }
+
+        // Actualizar el título procesado
+        this.title = ColorUtils.translateColors(processedTitle);
+
+        // Si el inventario ya existe, recrearlo con el nuevo título
+        if (inventory != null && viewer != null) {
+            Player currentViewer = viewer;
+
+            // Crear nuevo inventario con el título actualizado
+            Inventory newInventory = Bukkit.createInventory(null, size, title);
+
+            // Copiar todos los ítems
+            for (int i = 0; i < size; i++) {
+                if (inventory.getItem(i) != null) {
+                    newInventory.setItem(i, inventory.getItem(i));
+                }
+            }
+
+            // Guardar referencia al nuevo inventario
+            inventory = newInventory;
+
+            // Abrir el nuevo inventario al jugador
+            currentViewer.openInventory(inventory);
+        }
+
+        return this;
+    }
+
+    // Modificar el método open para actualizar el título antes de abrir el menú
     public void open(Player player) {
         this.viewer = player;
+
+        // Actualizar el título con placeholders si está activado
+        if (usePlaceholdersInTitle) {
+            updateTitle(player);
+        }
 
         // Crear inventario si no existe
         if (inventory == null) {

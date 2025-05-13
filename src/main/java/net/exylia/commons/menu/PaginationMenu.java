@@ -31,15 +31,13 @@ public class PaginationMenu {
     private BiConsumer<Menu, Integer> menuCustomizer;
     private boolean usePlaceholdersInTitle = false;
 
-    // Para gestionar las actualizaciones dinámicas
     private boolean dynamicUpdates = false;
     private long updateInterval = 20L;
     private JavaPlugin plugin;
     private final Map<Player, Menu> activeMenus = new HashMap<>();
-    // Mapa para almacenar las tareas de actualización global por jugador
     private final Map<Player, Integer> menuTasks = new HashMap<>();
-    // Mapa para almacenar las tareas de actualización individual por ítem y jugador
     private final Map<Player, Map<Integer, Integer>> itemTasksMap = new HashMap<>();
+    private Object placeholderContext = null;
 
     /**
      * Constructor del menú paginado
@@ -339,6 +337,16 @@ public class PaginationMenu {
     }
 
     /**
+     * Establece un objeto de contexto para los placeholders personalizados
+     * @param context Objeto de contexto para placeholders personalizados
+     * @return El mismo menú paginado (para encadenamiento)
+     */
+    public PaginationMenu setPlaceholderContext(Object context) {
+        this.placeholderContext = context;
+        return this;
+    }
+
+    /**
      * Crea un menú para una página específica
      *
      * @param player   Jugador para quien se crea el menú
@@ -350,15 +358,17 @@ public class PaginationMenu {
         // Título con la página actual y total
         String title = baseTitle.replace("%page%", String.valueOf(page)).replace("%pages%", String.valueOf(maxPages));
 
-        // Procesar placeholders en el título si está activado
+        // Procesar placeholders personalizados primero
+        if (placeholderContext != null) {
+            title = CustomPlaceholderManager.process(title, placeholderContext);
+        }
+
+        // Procesar placeholders de PlaceholderAPI si está activado
         if (usePlaceholdersInTitle && MenuManager.isPlaceholderAPIEnabled()) {
             title = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, title);
         }
 
         Menu menu = new Menu(title, rows);
-
-        // Importante: No activamos las actualizaciones dinámicas en el menú individual
-        // ya que lo gestionamos a nivel del PaginationMenu
 
         // Establecer un manejador de cierre personalizado para limpiar recursos
         menu.setCloseHandler(p -> {

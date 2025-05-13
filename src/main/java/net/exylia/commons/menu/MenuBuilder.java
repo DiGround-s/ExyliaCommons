@@ -4,6 +4,7 @@ import net.exylia.commons.config.ConfigManager;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
@@ -15,52 +16,39 @@ import java.util.List;
 public class MenuBuilder {
 
     private final JavaPlugin plugin;
-    private final ConfigManager configManager;
 
     /**
      * Constructor del MenuBuilder
      * @param plugin Plugin principal
-     * @param configManager Gestor de configuraciones
      */
-    public MenuBuilder(JavaPlugin plugin, ConfigManager configManager) {
+    public MenuBuilder(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.configManager = configManager;
     }
 
     /**
      * Crea un menú a partir de la configuración
-     * @param menuId Identificador del menú en la configuración
      * @return Menú creado o null si no existe la configuración
      */
-    public Menu buildMenu(String menuId) {
-        FileConfiguration menuConfig = configManager.getConfig("menus");
-        if (menuConfig == null) {
-            return null;
-        }
-
-        ConfigurationSection menuSection = menuConfig.getConfigurationSection("menus." + menuId);
-        if (menuSection == null) {
-            return null;
-        }
+    public Menu buildMenu(FileConfiguration menuConfig, Player player) {
 
         // Propiedades básicas del menú
-        String title = menuSection.getString("title", "Menu");
-        int rows = menuSection.getInt("rows", 3);
+        String title = menuConfig.getString("title", "Menu");
+        int rows = menuConfig.getInt("rows", 3);
         Menu menu = new Menu(title, rows);
 
         // Configuración de actualizaciones dinámicas del menú
-        if (menuSection.getBoolean("dynamic_updates", false)) {
-            long updateInterval = menuSection.getLong("update_interval", 20L);
+        if (menuConfig.getBoolean("dynamic_updates", false)) {
+            long updateInterval = menuConfig.getLong("update_interval", 20L);
             menu.enableDynamicUpdates(plugin, updateInterval);
         }
 
         // Cargar ítems
-        ConfigurationSection itemsSection = menuSection.getConfigurationSection("items");
+        ConfigurationSection itemsSection = menuConfig.getConfigurationSection("items");
         if (itemsSection != null) {
             for (String itemKey : itemsSection.getKeys(false)) {
                 ConfigurationSection itemSection = itemsSection.getConfigurationSection(itemKey);
                 if (itemSection != null) {
-                    MenuItem menuItem = buildMenuItem(itemSection);
+                    MenuItem menuItem = buildMenuItem(itemSection, player);
 
                     // Obtener los slots para este ítem
                     List<Integer> slots = getItemSlots(itemSection, rows);
@@ -96,25 +84,46 @@ public class MenuBuilder {
             }
         }
 
-        // Comprobar formato de rango "slots: 0-3"
+        // Comprobar formatos de slots como String
         if (itemSection.contains("slots") && itemSection.isString("slots")) {
-            String slotsRange = itemSection.getString("slots");
-            if (slotsRange != null && slotsRange.contains("-")) {
-                String[] range = slotsRange.split("-");
-                if (range.length == 2) {
-                    try {
-                        int start = Integer.parseInt(range[0].trim());
-                        int end = Integer.parseInt(range[1].trim());
+            String slotsString = itemSection.getString("slots");
+            if (slotsString != null) {
+                // Dividir por comas para manejar formato "4,9-17"
+                String[] parts = slotsString.split(",");
 
-                        // Asegurar que el rango esté dentro de los límites
-                        start = Math.max(0, start);
-                        end = Math.min(maxSlot, end);
+                for (String part : parts) {
+                    part = part.trim();
 
-                        for (int i = start; i <= end; i++) {
-                            slots.add(i);
+                    // Comprobar si es un rango (contiene "-")
+                    if (part.contains("-")) {
+                        String[] range = part.split("-");
+                        if (range.length == 2) {
+                            try {
+                                int start = Integer.parseInt(range[0].trim());
+                                int end = Integer.parseInt(range[1].trim());
+
+                                // Asegurar que el rango esté dentro de los límites
+                                start = Math.max(0, start);
+                                end = Math.min(maxSlot, end);
+
+                                for (int i = start; i <= end; i++) {
+                                    slots.add(i);
+                                }
+                            } catch (NumberFormatException e) {
+                                // Ignorar formato inválido
+                            }
                         }
-                    } catch (NumberFormatException e) {
-                        // Ignorar formato inválido
+                    }
+                    // Si no es un rango, tratar como slot único
+                    else {
+                        try {
+                            int slot = Integer.parseInt(part);
+                            if (slot >= 0 && slot <= maxSlot) {
+                                slots.add(slot);
+                            }
+                        } catch (NumberFormatException e) {
+                            // Ignorar formato inválido
+                        }
                     }
                 }
             }
@@ -138,7 +147,7 @@ public class MenuBuilder {
      * @param itemSection Sección de configuración del ítem
      * @return Ítem creado
      */
-    private MenuItem buildMenuItem(ConfigurationSection itemSection) {
+    private MenuItem buildMenuItem(ConfigurationSection itemSection, Player player) {
         Material material = Material.valueOf(itemSection.getString("material", "STONE").toUpperCase());
         MenuItem menuItem = new MenuItem(material);
 
@@ -168,6 +177,7 @@ public class MenuBuilder {
         // Soporte para PlaceholderAPI
         if (itemSection.getBoolean("use_placeholders", false)) {
             menuItem.usePlaceholders(true);
+            menuItem.setPlaceholderPlayer(player);
         }
 
         // Actualización dinámica
@@ -183,32 +193,21 @@ public class MenuBuilder {
 
     /**
      * Crea un menú paginado a partir de la configuración
-     * @param menuId Identificador del menú en la configuración
      * @param itemSlots Posiciones donde colocar los ítems paginados
      * @return Menú paginado creado o null si no existe la configuración
      */
-    public PaginationMenu buildPaginationMenu(String menuId, int... itemSlots) {
-        FileConfiguration menuConfig = configManager.getConfig("menus");
-        if (menuConfig == null) {
-            return null;
-        }
-
-        ConfigurationSection menuSection = menuConfig.getConfigurationSection("menus." + menuId);
-        if (menuSection == null) {
-            return null;
-        }
-
+    public PaginationMenu buildPaginationMenu(FileConfiguration menuConfig, Player player, int... itemSlots) {
         // Propiedades básicas del menú
-        String title = menuSection.getString("title", "Menu");
-        int rows = menuSection.getInt("rows", 6);
+        String title = menuConfig.getString("title", "Menu");
+        int rows = menuConfig.getInt("rows", 6);
 
         // Crear menú de paginación
         PaginationMenu paginationMenu = new PaginationMenu(title, rows, itemSlots);
 
         // Botón anterior
-        ConfigurationSection prevSection = menuSection.getConfigurationSection("prev_button");
+        ConfigurationSection prevSection = menuConfig.getConfigurationSection("prev_button");
         if (prevSection != null) {
-            MenuItem prevButton = buildMenuItem(prevSection);
+            MenuItem prevButton = buildMenuItem(prevSection, player);
 
             // Obtener slot(s) para el botón anterior
             List<Integer> prevSlots = getItemSlots(prevSection, rows);
@@ -218,9 +217,9 @@ public class MenuBuilder {
         }
 
         // Botón siguiente
-        ConfigurationSection nextSection = menuSection.getConfigurationSection("next_button");
+        ConfigurationSection nextSection = menuConfig.getConfigurationSection("next_button");
         if (nextSection != null) {
-            MenuItem nextButton = buildMenuItem(nextSection);
+            MenuItem nextButton = buildMenuItem(nextSection, player);
 
             // Obtener slot(s) para el botón siguiente
             List<Integer> nextSlots = getItemSlots(nextSection, rows);
@@ -230,12 +229,42 @@ public class MenuBuilder {
         }
 
         // Ítem de relleno
-        ConfigurationSection fillerSection = menuSection.getConfigurationSection("filler");
+        ConfigurationSection fillerSection = menuConfig.getConfigurationSection("filler");
         if (fillerSection != null) {
-            MenuItem fillerItem = buildMenuItem(fillerSection);
+            MenuItem fillerItem = buildMenuItem(fillerSection, player);
             paginationMenu.setFillerItem(fillerItem);
         }
 
         return paginationMenu;
+    }
+
+
+    /**
+     * Crea un menú a partir de la configuración con soporte para placeholders personalizados
+     * @param menuConfig Configuración del menú
+     * @param placeholderContext Objeto de contexto para placeholders personalizados
+     * @return Menú creado o null si no existe la configuración
+     */
+    public Menu buildMenu(FileConfiguration menuConfig, Player player, Object placeholderContext) {
+        Menu menu = buildMenu(menuConfig, player);
+
+        // Configurar placeholders en el título si está especificado en la configuración
+        if (menuConfig.getBoolean("use_placeholders_in_title", false)) {
+            menu.usePlaceholdersInTitle(true);
+            menu.setTitlePlaceholderContext(placeholderContext);
+        }
+
+        return menu;
+    }
+
+    private MenuItem buildMenuItem(ConfigurationSection itemSection, Player player, Object placeholderContext) {
+        MenuItem menuItem = buildMenuItem(itemSection, player);
+
+        // Si el ítem usa placeholders, establecer el contexto
+        if (menuItem.usesPlaceholders() && placeholderContext != null) {
+            menuItem.setPlaceholderContext(placeholderContext);
+        }
+
+        return menuItem;
     }
 }

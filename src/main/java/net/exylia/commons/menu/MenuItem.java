@@ -331,6 +331,27 @@ public class MenuItem {
         return placeholderPlayer;
     }
 
+    // En MenuItem.java, añadir un campo para el objeto de contexto
+    private Object placeholderContext = null;
+
+    /**
+     * Establece un objeto de contexto para procesar placeholders personalizados
+     * @param context Objeto de contexto (ej: Player target)
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setPlaceholderContext(Object context) {
+        this.placeholderContext = context;
+        return this;
+    }
+
+    /**
+     * Obtiene el objeto de contexto para placeholders personalizados
+     * @return Objeto de contexto o null si no hay configurado
+     */
+    public Object getPlaceholderContext() {
+        return placeholderContext;
+    }
+
     /**
      * Actualiza los placeholders del ítem para un jugador específico
      * @param player Jugador para procesar los placeholders (si no hay un placeholderPlayer configurado)
@@ -346,7 +367,15 @@ public class MenuItem {
 
         // Actualizar nombre si existe
         if (rawName != null && !rawName.isEmpty()) {
-            String processedName = PlaceholderAPI.setPlaceholders(targetPlayer, rawName);
+            // Procesar placeholders personalizados primero
+            String processedName = rawName;
+            if (placeholderContext != null) {
+                processedName = CustomPlaceholderManager.process(processedName, placeholderContext);
+            }
+            // Luego procesar placeholders de PlaceholderAPI si está disponible
+            if (MenuManager.isPlaceholderAPIEnabled()) {
+                processedName = PlaceholderAPI.setPlaceholders(targetPlayer, processedName);
+            }
             meta.displayName(ColorUtils.translateColors(processedName));
         }
 
@@ -354,7 +383,15 @@ public class MenuItem {
         if (rawLore != null && !rawLore.isEmpty()) {
             List<Component> loreComponents = new ArrayList<>();
             for (String line : rawLore) {
-                String processedLine = PlaceholderAPI.setPlaceholders(targetPlayer, line);
+                // Procesar placeholders personalizados primero
+                String processedLine = line;
+                if (placeholderContext != null) {
+                    processedLine = CustomPlaceholderManager.process(processedLine, placeholderContext);
+                }
+                // Luego procesar placeholders de PlaceholderAPI si está disponible
+                if (MenuManager.isPlaceholderAPIEnabled()) {
+                    processedLine = PlaceholderAPI.setPlaceholders(targetPlayer, processedLine);
+                }
                 loreComponents.add(ColorUtils.translateColors(processedLine));
             }
             meta.lore(loreComponents);
