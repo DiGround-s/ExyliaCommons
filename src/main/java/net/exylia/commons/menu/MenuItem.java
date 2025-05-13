@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -31,6 +32,7 @@ public class MenuItem {
     private boolean usePlaceholders = false;
     private boolean dynamicUpdate = false;
     private long updateInterval = 20L; // 1 segundo por defecto
+    private Player placeholderPlayer = null; // Jugador específico para procesar los placeholders
 
     /**
      * Constructor del ítem de menú
@@ -82,6 +84,25 @@ public class MenuItem {
      */
     public MenuItem setLore(String... lore) {
         this.rawLore = Arrays.asList(lore);
+
+        List<Component> loreComponents = new ArrayList<>();
+        for (String line : lore) {
+            loreComponents.add(ColorUtils.translateColors(line));
+        }
+
+        ItemMeta meta = itemStack.getItemMeta();
+        meta.lore(loreComponents);
+        itemStack.setItemMeta(meta);
+        return this;
+    }
+
+    /**
+     * Establece la descripción del ítem usando una lista de strings
+     * @param lore Lista de líneas de descripción (admiten códigos de color y placeholders)
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setLoreFromList(List<String> lore) {
+        this.rawLore = new ArrayList<>(lore);
 
         List<Component> loreComponents = new ArrayList<>();
         for (String line : lore) {
@@ -249,8 +270,18 @@ public class MenuItem {
         clone.usePlaceholders = this.usePlaceholders;
         clone.dynamicUpdate = this.dynamicUpdate;
         clone.updateInterval = this.updateInterval;
-        return clone;
+        clone.placeholderPlayer = this.placeholderPlayer;
+        return this;
     }
+
+    public void applySkullOwner(Player player) {
+        if (this.itemStack.getType() == Material.PLAYER_HEAD) {
+            SkullMeta meta = (SkullMeta) this.itemStack.getItemMeta();
+            meta.setOwningPlayer(player);
+            this.itemStack.setItemMeta(meta);
+        }
+    }
+
 
     /**
      * Activa el uso de placeholders en el nombre y lore del ítem
@@ -283,18 +314,39 @@ public class MenuItem {
     }
 
     /**
+     * Establece un jugador específico para procesar los placeholders
+     * @param player Jugador para procesar los placeholders (o null para usar el jugador que ve el menú)
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setPlaceholderPlayer(Player player) {
+        this.placeholderPlayer = player;
+        return this;
+    }
+
+    /**
+     * Obtiene el jugador específico para procesar los placeholders
+     * @return Jugador específico o null si no hay configurado
+     */
+    public Player getPlaceholderPlayer() {
+        return placeholderPlayer;
+    }
+
+    /**
      * Actualiza los placeholders del ítem para un jugador específico
-     * @param player Jugador para procesar los placeholders
+     * @param player Jugador para procesar los placeholders (si no hay un placeholderPlayer configurado)
      * @return El mismo ítem (para encadenamiento)
      */
     public MenuItem updatePlaceholders(Player player) {
         if (!usePlaceholders) return this;
 
+        // Usar el placeholderPlayer específico si está configurado, de lo contrario usar el player proporcionado
+        Player targetPlayer = (placeholderPlayer != null) ? placeholderPlayer : player;
+
         ItemMeta meta = itemStack.getItemMeta();
 
         // Actualizar nombre si existe
         if (rawName != null && !rawName.isEmpty()) {
-            String processedName = PlaceholderAPI.setPlaceholders(player, rawName);
+            String processedName = PlaceholderAPI.setPlaceholders(targetPlayer, rawName);
             meta.displayName(ColorUtils.translateColors(processedName));
         }
 
@@ -302,7 +354,7 @@ public class MenuItem {
         if (rawLore != null && !rawLore.isEmpty()) {
             List<Component> loreComponents = new ArrayList<>();
             for (String line : rawLore) {
-                String processedLine = PlaceholderAPI.setPlaceholders(player, line);
+                String processedLine = PlaceholderAPI.setPlaceholders(targetPlayer, line);
                 loreComponents.add(ColorUtils.translateColors(processedLine));
             }
             meta.lore(loreComponents);

@@ -24,6 +24,7 @@ import java.util.function.Consumer;
 public class MenuManager implements Listener {
     private static JavaPlugin plugin;
     private static final Map<UUID, Menu> openMenus = new HashMap<>();
+    private static final Map<UUID, PaginationMenu> openPaginationMenus = new HashMap<>();
     private static boolean initialized = false;
     private static boolean placeholderAPIEnabled = false;
 
@@ -89,6 +90,14 @@ public class MenuManager implements Listener {
         // Notificar al menú que fue cerrado para limpiar recursos
         menu.onClose(player);
 
+        // Si este menú era parte de un PaginationMenu, manejar la limpieza a través de él
+        PaginationMenu paginationMenu = openPaginationMenus.get(player.getUniqueId());
+        if (paginationMenu != null) {
+            // Limpiar recursos del menú paginado
+            paginationMenu.cleanup(player);
+            openPaginationMenus.remove(player.getUniqueId());
+        }
+
         openMenus.remove(player.getUniqueId());
 
         if (menu.getCloseHandler() != null) {
@@ -108,6 +117,15 @@ public class MenuManager implements Listener {
      */
     static void registerOpenMenu(Player player, Menu menu) {
         openMenus.put(player.getUniqueId(), menu);
+    }
+
+    /**
+     * Registra un menú paginado abierto
+     * @param player Jugador que abrió el menú
+     * @param paginationMenu Menú paginado abierto
+     */
+    static void registerOpenPaginationMenu(Player player, PaginationMenu paginationMenu) {
+        openPaginationMenus.put(player.getUniqueId(), paginationMenu);
     }
 
     /**

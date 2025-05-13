@@ -74,39 +74,11 @@ public class ColorUtils {
             return cached;
         }
 
-        // Si no tiene códigos de color para procesar
-        if (!message.contains("&")) {
-            Component component = MiniMessage.miniMessage().deserialize(message)
-                    .decoration(TextDecoration.ITALIC, false);
+        // Preprocesar todos los formatos de código de color
+        String processed = preprocessColorCodes(message);
 
-            // Guardar en caché si no es demasiado grande
-            if (message.length() <= 100) {
-                cacheComponent(message, component);
-            }
-
-            return component;
-        }
-
-        StringBuilder builder = new StringBuilder(message.length() + 16);
-        int length = message.length();
-
-        for (int i = 0; i < length; i++) {
-            char c = message.charAt(i);
-            if (c == '&' && i + 1 < length) {
-                char next = message.charAt(i + 1);
-                String replacement = COLOR_MAP.get(next);
-                if (replacement != null) {
-                    builder.append(replacement);
-                    i++;
-                } else {
-                    builder.append(c);
-                }
-            } else {
-                builder.append(c);
-            }
-        }
-
-        Component result = MiniMessage.miniMessage().deserialize(builder.toString())
+        // Aplicar MiniMessage para interpretar todos los formatos
+        Component result = MiniMessage.miniMessage().deserialize(processed)
                 .decoration(TextDecoration.ITALIC, false);
 
         // Guardar en caché si no es demasiado grande
@@ -115,6 +87,75 @@ public class ColorUtils {
         }
 
         return result;
+    }
+
+    /**
+     * Preprocesa todos los formatos de código de color a formato MiniMessage
+     * @param message Mensaje con códigos de color en cualquier formato
+     * @return Mensaje con todos los códigos de color convertidos a formato MiniMessage
+     */
+    private static String preprocessColorCodes(String message) {
+        if (message == null || message.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder builder = new StringBuilder(message.length() + 32);
+        int length = message.length();
+
+        for (int i = 0; i < length; i++) {
+            char c = message.charAt(i);
+
+            // Manejar códigos &
+            if (c == '&' && i + 1 < length) {
+                char next = message.charAt(i + 1);
+                if ((next >= '0' && next <= '9') || (next >= 'a' && next <= 'f') || "klmnor".indexOf(next) != -1) {
+                    String replacement = COLOR_MAP.get(next);
+                    if (replacement != null) {
+                        builder.append(replacement);
+                        i++;
+                        continue;
+                    }
+                }
+                // Manejar códigos hex &# (&#ffffff)
+                else if (next == '#' && i + 8 < length) {
+                    String hexColor = message.substring(i + 2, i + 8);
+                    if (hexColor.matches("[0-9a-fA-F]{6}")) {
+                        builder.append("<#").append(hexColor.toLowerCase()).append(">");
+                        i += 7; // Saltar todo el código hexadecimal
+                        continue;
+                    }
+                }
+            }
+
+            // Manejar formato <#hex> si ya existe
+            if (c == '<' && i + 8 < length && message.charAt(i + 1) == '#') {
+                int closeIndex = message.indexOf('>', i + 8);
+                if (closeIndex != -1 && closeIndex - i <= 9) { // <#ffffff> = 9 caracteres
+                    String hexPart = message.substring(i + 2, closeIndex);
+                    if (hexPart.matches("[0-9a-fA-F]{6}")) {
+                        // Ya está en formato correcto, añadir como está
+                        builder.append(message.substring(i, closeIndex + 1));
+                        i = closeIndex;
+                        continue;
+                    }
+                }
+            }
+
+            // Manejar formato #hex directo
+            if (c == '#' && i + 6 < length) {
+                String hexColor = message.substring(i + 1, i + 7);
+                if (hexColor.matches("[0-9a-fA-F]{6}")) {
+                    builder.append("<#").append(hexColor.toLowerCase()).append(">");
+                    i += 6; // Saltar todo el código hexadecimal
+                    continue;
+                }
+            }
+
+            // Si no es un código de color, añadir el carácter tal cual
+            builder.append(c);
+        }
+
+        return builder.toString();
     }
 
     /**

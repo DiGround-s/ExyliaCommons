@@ -2,11 +2,15 @@ package net.exylia.commons.menu;
 
 import net.exylia.commons.utils.ColorUtils;
 import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 /**
@@ -26,6 +30,16 @@ public class PaginationMenu {
     private MenuItem fillerItem;
     private BiConsumer<Menu, Integer> menuCustomizer;
     private boolean usePlaceholdersInTitle = false;
+
+    // Para gestionar las actualizaciones dinámicas
+    private boolean dynamicUpdates = false;
+    private long updateInterval = 20L;
+    private JavaPlugin plugin;
+    private final Map<Player, Menu> activeMenus = new HashMap<>();
+    // Mapa para almacenar las tareas de actualización global por jugador
+    private final Map<Player, Integer> menuTasks = new HashMap<>();
+    // Mapa para almacenar las tareas de actualización individual por ítem y jugador
+    private final Map<Player, Map<Integer, Integer>> itemTasksMap = new HashMap<>();
 
     /**
      * Constructor del menú paginado
@@ -136,6 +150,37 @@ public class PaginationMenu {
     }
 
     /**
+     * Activa las actualizaciones dinámicas del menú
+     * @param plugin Plugin para programar la tarea
+     * @param tickInterval Intervalo de actualización en ticks
+     * @return El mismo menú paginado (para encadenamiento)
+     */
+    public PaginationMenu enableDynamicUpdates(JavaPlugin plugin, long tickInterval) {
+        this.dynamicUpdates = true;
+        this.plugin = plugin;
+        this.updateInterval = tickInterval;
+        return this;
+    }
+
+    /**
+     * Desactiva las actualizaciones dinámicas del menú
+     * @return El mismo menú paginado (para encadenamiento)
+     */
+    public PaginationMenu disableDynamicUpdates() {
+        this.dynamicUpdates = false;
+
+        // Cancelar todas las tareas pendientes
+        for (Integer taskId : menuTasks.values()) {
+            if (taskId != null && taskId != -1) {
+                Bukkit.getScheduler().cancelTask(taskId);
+            }
+        }
+        menuTasks.clear();
+
+        return this;
+    }
+
+    /**
      * Abre el menú para un jugador en la página 1
      *
      * @param player Jugador al que mostrar el menú
@@ -151,6 +196,32 @@ public class PaginationMenu {
      * @param page   Número de página
      */
     public void open(Player player, int page) {
+        // Cancelar cualquier tarea anterior para este jugador
+        if (menuTasks.containsKey(player)) {
+            Integer taskId = menuTasks.get(player);
+            if (taskId != null && taskId != -1) {
+                Bukkit.getScheduler().cancelTask(taskId);
+            }
+            menuTasks.remove(player);
+        }
+
+        // Cancelar todas las tareas de actualización individual por ítem
+        if (itemTasksMap.containsKey(player)) {
+            Map<Integer, Integer> itemTasks = itemTasksMap.get(player);
+            for (Integer taskId : itemTasks.values()) {
+                if (taskId != null && taskId != -1) {
+                    Bukkit.getScheduler().cancelTask(taskId);
+                }
+            }
+            itemTasksMap.remove(player);
+        }
+
+        // Obtener el menú anterior si existe (para poder cerrar correctamente)
+        Menu previousMenu = activeMenus.get(player);
+        if (previousMenu != null) {
+            previousMenu.onClose(player);
+        }
+
         int maxPages = (int) Math.ceil((double) items.size() / maxItemsPerPage);
         maxPages = Math.max(1, maxPages);
 
@@ -165,7 +236,106 @@ public class PaginationMenu {
 
         // Crear el menú para la página actual
         Menu menu = createMenuForPage(player, page, maxPages);
+
+        // Almacenar referencia al menú activo
+        activeMenus.put(player, menu);
+
+        // Inicializar el mapa de tareas por ítem para este jugador si no existe
+        if (!itemTasksMap.containsKey(player)) {
+            itemTasksMap.put(player, new HashMap<>());
+        }
+
+        // Configurar actualizaciones dinámicas para cada ítem si están habilitadas
+        if (dynamicUpdates && plugin != null) {
+            // Programar actualizaciones individuales para cada ítem
+            scheduleItemUpdates(player, menu);
+        }
+
         menu.open(player);
+    }
+
+    /**
+     * Programa las actualizaciones individuales para cada ítem según su configuración
+     * @param player Jugador dueño del menú
+     * @param menu Menú a actualizar
+     */
+    private void scheduleItemUpdates(Player player, Menu menu) {
+        // Obtener el mapa de tareas para este jugador
+        Map<Integer, Integer> itemTasks = itemTasksMap.get(player);
+
+        // Recorrer todos los slots del menú
+        for (int slot = 0; slot < rows * 9; slot++) {
+            MenuItem item = menu.getItem(slot);
+
+            // Si el ítem necesita actualización dinámica y tiene placeholders
+            if (item != null && item.needsDynamicUpdate() && item.usesPlaceholders()) {
+                final int finalSlot = slot;
+
+                // Programar una tarea específica para este ítem con su propio intervalo
+                int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
+                    if (player.isOnline() && activeMenus.containsKey(player)) {
+                        // Actualizar solo este ítem específico
+                        updateSingleItem(player, menu, finalSlot, item);
+                    } else {
+                        // Si el jugador ya no está en línea, cancelar la tarea
+                        Integer existingTaskId = itemTasks.get(finalSlot);
+                        if (existingTaskId != null && existingTaskId != -1) {
+                            Bukkit.getScheduler().cancelTask(existingTaskId);
+                        }
+                        itemTasks.remove(finalSlot);
+                    }
+                }, item.getUpdateInterval(), item.getUpdateInterval());
+
+                // Guardar referencia a la tarea para poder cancelarla después
+                itemTasks.put(slot, taskId);
+            }
+        }
+    }
+
+    /**
+     * Actualiza un único ítem en el menú
+     * @param player Jugador dueño del menú
+     * @param menu Menú donde está el ítem
+     * @param slot Posición del ítem
+     * @param item El ítem a actualizar
+     */
+    private void updateSingleItem(Player player, Menu menu, int slot, MenuItem item) {
+        if (menu == null || !player.isOnline()) return;
+
+        // Actualizar los placeholders del ítem
+        item.updatePlaceholders(item.getPlaceholderPlayer() != null ? item.getPlaceholderPlayer() : player);
+
+        // Actualizar el ítem en el inventario
+        menu.setItem(slot, item);
+    }
+
+    /**
+     * Limpia todas las tareas y referencias cuando un jugador cierra definitivamente el menú
+     * @param player Jugador que cerró el menú
+     */
+    public void cleanup(Player player) {
+        // Cancelar tareas de actualización global
+        if (menuTasks.containsKey(player)) {
+            Integer taskId = menuTasks.get(player);
+            if (taskId != null && taskId != -1) {
+                Bukkit.getScheduler().cancelTask(taskId);
+            }
+            menuTasks.remove(player);
+        }
+
+        // Cancelar todas las tareas de actualización individual por ítem
+        if (itemTasksMap.containsKey(player)) {
+            Map<Integer, Integer> itemTasks = itemTasksMap.get(player);
+            for (Integer taskId : itemTasks.values()) {
+                if (taskId != null && taskId != -1) {
+                    Bukkit.getScheduler().cancelTask(taskId);
+                }
+            }
+            itemTasksMap.remove(player);
+        }
+
+        // Eliminar referencia al menú activo
+        activeMenus.remove(player);
     }
 
     /**
@@ -178,7 +348,7 @@ public class PaginationMenu {
      */
     private Menu createMenuForPage(Player player, int page, int maxPages) {
         // Título con la página actual y total
-        String title = baseTitle + " &8(&7" + page + "&8/&7" + maxPages + "&8)";
+        String title = baseTitle.replace("%page%", String.valueOf(page)).replace("%pages%", String.valueOf(maxPages));
 
         // Procesar placeholders en el título si está activado
         if (usePlaceholdersInTitle && MenuManager.isPlaceholderAPIEnabled()) {
@@ -186,6 +356,17 @@ public class PaginationMenu {
         }
 
         Menu menu = new Menu(title, rows);
+
+        // Importante: No activamos las actualizaciones dinámicas en el menú individual
+        // ya que lo gestionamos a nivel del PaginationMenu
+
+        // Establecer un manejador de cierre personalizado para limpiar recursos
+        menu.setCloseHandler(p -> {
+            // Solo limpiamos recursos si es un cierre real (no una navegación entre páginas)
+            if (!activeMenus.containsKey(p) || activeMenus.get(p) != menu) {
+                cleanup(p);
+            }
+        });
 
         // Botones de navegación
         if (page > 1) {
@@ -266,6 +447,11 @@ public class PaginationMenu {
         }
 
         clone.usePlaceholdersInTitle(usePlaceholdersInTitle);
+
+        // Copiar configuración de actualizaciones dinámicas
+        if (dynamicUpdates) {
+            clone.enableDynamicUpdates(plugin, updateInterval);
+        }
 
         if (menuCustomizer != null) {
             clone.setMenuCustomizer(menuCustomizer);
