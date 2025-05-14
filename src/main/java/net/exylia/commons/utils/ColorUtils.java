@@ -95,67 +95,94 @@ public class ColorUtils {
      * @return Mensaje con todos los códigos de color convertidos a formato MiniMessage
      */
     private static String preprocessColorCodes(String message) {
-        if (message == null || message.isEmpty()) {
-            return "";
-        }
+        if (message != null && !message.isEmpty()) {
+            StringBuilder builder = new StringBuilder(message.length() + 32);
+            int length = message.length();
 
-        StringBuilder builder = new StringBuilder(message.length() + 32);
-        int length = message.length();
+            for(int i = 0; i < length; ++i) {
+                char c = message.charAt(i);
 
-        for (int i = 0; i < length; i++) {
-            char c = message.charAt(i);
+                if (c == '<' && i + 1 < length) {
+                    int closeIndex = message.indexOf('>', i);
+                    if (closeIndex != -1) {
+                        String tag = message.substring(i, closeIndex + 1).toLowerCase();
 
-            // Manejar códigos &
-            if (c == '&' && i + 1 < length) {
-                char next = message.charAt(i + 1);
-                if ((next >= '0' && next <= '9') || (next >= 'a' && next <= 'f') || "klmnor".indexOf(next) != -1) {
-                    String replacement = COLOR_MAP.get(next);
-                    if (replacement != null) {
-                        builder.append(replacement);
-                        i++;
-                        continue;
+                        if (tag.contains("gradient:") || tag.contains("rainbow") ||
+                                tag.startsWith("<hover") || tag.startsWith("<click")) {
+                            builder.append(message.substring(i, closeIndex + 1));
+                            i = closeIndex;
+                            continue;
+                        }
                     }
                 }
-                // Manejar códigos hex &# (&#ffffff)
-                else if (next == '#' && i + 8 < length) {
-                    String hexColor = message.substring(i + 2, i + 8);
+
+                if (c == '&' && i + 1 < length) {
+                    char next = message.charAt(i + 1);
+                    if ((next < '0' || next > '9') && (next < 'a' || next > 'f') && "klmnor".indexOf(next) == -1) {
+                        if (next == '#' && i + 8 < length) {
+                            String hexColor = message.substring(i + 2, i + 8);
+                            if (hexColor.matches("[0-9a-fA-F]{6}")) {
+                                builder.append("<#").append(hexColor.toLowerCase()).append(">");
+                                i += 7;
+                                continue;
+                            }
+                        }
+                    } else {
+                        String replacement = COLOR_MAP.get(next);
+                        if (replacement != null) {
+                            builder.append(replacement);
+                            ++i;
+                            continue;
+                        }
+                    }
+                }
+
+                if (c == '<' && i + 8 < length && message.charAt(i + 1) == '#') {
+                    int closeIndex = message.indexOf('>', i + 8);
+                    if (closeIndex != -1 && closeIndex - i <= 9) {
+                        String hexPart = message.substring(i + 2, closeIndex);
+                        if (hexPart.matches("[0-9a-fA-F]{6}")) {
+                            builder.append(message.substring(i, closeIndex + 1));
+                            i = closeIndex;
+                            continue;
+                        }
+                    }
+                }
+
+                if (c == '#' && i + 6 < length) {
+                    String hexColor = message.substring(i + 1, i + 7);
                     if (hexColor.matches("[0-9a-fA-F]{6}")) {
                         builder.append("<#").append(hexColor.toLowerCase()).append(">");
-                        i += 7; // Saltar todo el código hexadecimal
+                        i += 6;
                         continue;
                     }
                 }
+
+                builder.append(c);
             }
 
-            // Manejar formato <#hex> si ya existe
-            if (c == '<' && i + 8 < length && message.charAt(i + 1) == '#') {
-                int closeIndex = message.indexOf('>', i + 8);
-                if (closeIndex != -1 && closeIndex - i <= 9) { // <#ffffff> = 9 caracteres
-                    String hexPart = message.substring(i + 2, closeIndex);
-                    if (hexPart.matches("[0-9a-fA-F]{6}")) {
-                        // Ya está en formato correcto, añadir como está
-                        builder.append(message.substring(i, closeIndex + 1));
-                        i = closeIndex;
-                        continue;
-                    }
-                }
-            }
+            return builder.toString();
+        } else {
+            return "";
+        }
+    }
 
-            // Manejar formato #hex directo
-            if (c == '#' && i + 6 < length) {
-                String hexColor = message.substring(i + 1, i + 7);
-                if (hexColor.matches("[0-9a-fA-F]{6}")) {
-                    builder.append("<#").append(hexColor.toLowerCase()).append(">");
-                    i += 6; // Saltar todo el código hexadecimal
-                    continue;
-                }
-            }
 
-            // Si no es un código de color, añadir el carácter tal cual
-            builder.append(c);
+    private static boolean isAdvancedMiniMessageTag(String text, int startIndex) {
+        String[] advancedTags = {"gradient:", "rainbow", "hover", "click"};
+
+        int closeIndex = text.indexOf('>', startIndex);
+        if (closeIndex == -1) return false;
+
+        String tag = text.substring(startIndex, closeIndex + 1).toLowerCase();
+
+        for (String advancedTag : advancedTags) {
+            if (tag.contains(advancedTag)) {
+                return true;
+            }
         }
 
-        return builder.toString();
+        return false;
     }
 
     /**
