@@ -3,8 +3,10 @@ package net.exylia.commons.menu;
 import net.exylia.commons.utils.ColorUtils;
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
@@ -33,6 +35,7 @@ public class MenuItem {
     private boolean dynamicUpdate = false;
     private long updateInterval = 20L; // 1 segundo por defecto
     private Player placeholderPlayer = null; // Jugador específico para procesar los placeholders
+    private List<String> commands = new ArrayList<>(); // Lista de comandos a ejecutar
 
     /**
      * Constructor del ítem de menú
@@ -271,7 +274,8 @@ public class MenuItem {
         clone.dynamicUpdate = this.dynamicUpdate;
         clone.updateInterval = this.updateInterval;
         clone.placeholderPlayer = this.placeholderPlayer;
-        return this;
+        clone.commands = new ArrayList<>(this.commands);
+        return clone;
     }
 
     public void applySkullOwner(Player player) {
@@ -281,7 +285,6 @@ public class MenuItem {
             this.itemStack.setItemMeta(meta);
         }
     }
-
 
     /**
      * Activa el uso de placeholders en el nombre y lore del ítem
@@ -350,6 +353,70 @@ public class MenuItem {
      */
     public Object getPlaceholderContext() {
         return placeholderContext;
+    }
+
+    /**
+     * Añade un comando a ejecutar cuando se hace clic en el ítem
+     * @param command Comando a ejecutar (formato: "player: /comando" o "console: /comando")
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem addCommand(String command) {
+        this.commands.add(command);
+        return this;
+    }
+
+    /**
+     * Establece la lista de comandos a ejecutar
+     * @param commands Lista de comandos (formato: "player: /comando" o "console: /comando")
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setCommands(List<String> commands) {
+        this.commands = new ArrayList<>(commands);
+        return this;
+    }
+
+    /**
+     * Obtiene la lista de comandos a ejecutar
+     * @return Lista de comandos
+     */
+    public List<String> getCommands() {
+        return commands;
+    }
+
+    /**
+     * Ejecuta los comandos configurados
+     * @param player Jugador que hace clic en el ítem
+     */
+    public void executeCommands(Player player) {
+        if (commands.isEmpty()) return;
+
+        for (String cmd : commands) {
+            String processedCmd = cmd;
+
+            // Procesar placeholders personalizados primero
+            if (placeholderContext != null) {
+                processedCmd = CustomPlaceholderManager.process(processedCmd, placeholderContext);
+            }
+
+            // Luego procesar placeholders de PlaceholderAPI si está disponible
+            if (MenuManager.isPlaceholderAPIEnabled()) {
+                processedCmd = PlaceholderAPI.setPlaceholders(
+                        placeholderPlayer != null ? placeholderPlayer : player,
+                        processedCmd
+                );
+            }
+
+            if (processedCmd.startsWith("player: ")) {
+                // Comando ejecutado por el jugador
+                String playerCmd = processedCmd.substring(8).trim();
+                player.performCommand(playerCmd);
+            } else if (processedCmd.startsWith("console: ")) {
+                // Comando ejecutado por la consola
+                String consoleCmd = processedCmd.substring(9).trim();
+                ConsoleCommandSender console = Bukkit.getConsoleSender();
+                Bukkit.dispatchCommand(console, consoleCmd);
+            }
+        }
     }
 
     /**

@@ -59,9 +59,21 @@ public class MenuManager implements Listener {
         if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) {
             return;
         }
+
         MenuItem item = menu.getItem(event.getSlot());
-        if (item != null && item.getClickHandler() != null) {
-            item.getClickHandler().accept(new MenuClickInfo(player, event.getClick(), event.getSlot(), menu));
+        if (item != null) {
+            // Ejecutar comandos si hay definidos
+            if (!item.getCommands().isEmpty()) {
+                // Cerrar el inventario antes de ejecutar comandos para evitar problemas
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    item.executeCommands(player);
+                });
+            }
+
+            // Ejecutar el handler de clic si está definido
+            if (item.getClickHandler() != null) {
+                item.getClickHandler().accept(new MenuClickInfo(player, event.getClick(), event.getSlot(), menu));
+            }
         }
     }
 

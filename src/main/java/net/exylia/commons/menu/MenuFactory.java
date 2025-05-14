@@ -5,8 +5,11 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Fábrica para crear menús e ítems comunes rápidamente
@@ -204,5 +207,52 @@ public class MenuFactory {
     public static MenuItem createCounter(Material material, String name, String... lore) {
         // Un contador típico se actualiza cada segundo (20 ticks)
         return createDynamicItem(material, name, 20L, lore);
+    }
+
+    /**
+     * Crea un ítem con comandos a ejecutar al hacer clic
+     * @param material Material del ítem
+     * @param name Nombre del ítem
+     * @param commands Lista de comandos a ejecutar
+     * @param lore Descripción del ítem
+     * @return Ítem con comandos
+     */
+    public static MenuItem createCommandItem(Material material, String name, List<String> commands, String... lore) {
+        return new MenuItem(material)
+                .setName(name)
+                .setLore(lore)
+                .hideAllAttributes()
+                .setCommands(commands);
+    }
+
+    /**
+     * Crea un ítem con comandos a ejecutar al hacer clic
+     * @param material Material del ítem
+     * @param name Nombre del ítem
+     * @param commands Array de comandos a ejecutar
+     * @return Ítem con comandos
+     */
+    public static MenuItem createCommandItem(Material material, String name, String... commands) {
+        return new MenuItem(material)
+                .setName(name)
+                .hideAllAttributes()
+                .setCommands(Arrays.asList(commands));
+    }
+
+    /**
+     * Crea un ítem con comandos y placeholders
+     * @param material Material del ítem
+     * @param name Nombre del ítem (admite placeholders)
+     * @param commands Lista de comandos a ejecutar (admiten placeholders)
+     * @param lore Descripción del ítem (admite placeholders)
+     * @return Ítem con comandos y placeholders
+     */
+    public static MenuItem createPlaceholderCommandItem(Material material, String name, List<String> commands, String... lore) {
+        return new MenuItem(material)
+                .setName(name)
+                .setLore(lore)
+                .hideAllAttributes()
+                .usePlaceholders(true)
+                .setCommands(commands);
     }
 }

@@ -188,6 +188,14 @@ public class MenuBuilder {
             }
         }
 
+        // Comandos
+        if (itemSection.contains("commands")) {
+            List<String> commands = itemSection.getStringList("commands");
+            if (!commands.isEmpty()) {
+                menuItem.setCommands(commands);
+            }
+        }
+
         return menuItem;
     }
 
@@ -237,7 +245,6 @@ public class MenuBuilder {
 
         return paginationMenu;
     }
-
 
     /**
      * Crea un menú a partir de la configuración con soporte para placeholders personalizados
