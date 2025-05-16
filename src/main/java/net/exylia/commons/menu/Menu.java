@@ -212,61 +212,47 @@ public class Menu {
 
         String processedTitle = rawTitle;
 
-        // Procesar placeholders personalizados primero
         if (titlePlaceholderContext != null) {
             processedTitle = CustomPlaceholderManager.process(processedTitle, titlePlaceholderContext);
         }
 
-        // Luego procesar placeholders de PlaceholderAPI si está disponible
         if (MenuManager.isPlaceholderAPIEnabled()) {
             processedTitle = PlaceholderAPI.setPlaceholders(player, processedTitle);
         }
 
-        // Actualizar el título procesado
         this.title = ColorUtils.translateColors(processedTitle);
 
-        // Si el inventario ya existe, recrearlo con el nuevo título
         if (inventory != null && viewer != null) {
             Player currentViewer = viewer;
 
-            // Crear nuevo inventario con el título actualizado
             Inventory newInventory = Bukkit.createInventory(null, size, title);
 
-            // Copiar todos los ítems
             for (int i = 0; i < size; i++) {
                 if (inventory.getItem(i) != null) {
                     newInventory.setItem(i, inventory.getItem(i));
                 }
             }
 
-            // Guardar referencia al nuevo inventario
             inventory = newInventory;
-
-            // Abrir el nuevo inventario al jugador
             currentViewer.openInventory(inventory);
         }
 
         return this;
     }
 
-    // Modificar el método open para actualizar el título antes de abrir el menú
     public void open(Player player) {
         this.viewer = player;
 
-        // Actualizar el título con placeholders si está activado
         if (usePlaceholdersInTitle) {
             updateTitle(player);
         }
 
-        // Crear inventario si no existe
         if (inventory == null) {
             inventory = Bukkit.createInventory(null, size, title);
 
-            // Colocar los ítems en el inventario
             for (Map.Entry<Integer, MenuItem> entry : items.entrySet()) {
                 MenuItem item = entry.getValue();
 
-                // Actualizar placeholders si el ítem los usa
                 if (item.usesPlaceholders()) {
                     item.updatePlaceholders(player);
                 }
@@ -274,7 +260,6 @@ public class Menu {
                 inventory.setItem(entry.getKey(), item.getItemStack());
             }
         } else {
-            // Si el inventario ya existe, actualizar los placeholders para el nuevo jugador
             for (Map.Entry<Integer, MenuItem> entry : items.entrySet()) {
                 MenuItem item = entry.getValue();
                 if (item.usesPlaceholders()) {
@@ -287,12 +272,10 @@ public class Menu {
         player.openInventory(inventory);
         MenuManager.registerOpenMenu(player, this);
 
-        // Iniciar actualizaciones dinámicas si están activadas
         if (dynamicUpdates && plugin != null && taskId == -1) {
             taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::updateItems, updateInterval, updateInterval);
         }
 
-        // Programar actualizaciones para ítems individuales
         for (Map.Entry<Integer, MenuItem> entry : items.entrySet()) {
             MenuItem item = entry.getValue();
             if (item.needsDynamicUpdate() && plugin != null) {
@@ -306,19 +289,16 @@ public class Menu {
      * @param player Jugador que cerró el menú
      */
     void onClose(Player player) {
-        // Cancelar todas las tareas de actualización
         if (taskId != -1) {
             Bukkit.getScheduler().cancelTask(taskId);
             taskId = -1;
         }
 
-        // Cancelar todas las tareas de actualización de ítems individuales
         for (int taskId : itemTaskIds.values()) {
             Bukkit.getScheduler().cancelTask(taskId);
         }
         itemTaskIds.clear();
 
-        // Eliminar la referencia al viewer
         this.viewer = null;
     }
 
@@ -369,13 +349,11 @@ public class Menu {
     public Menu createBorder(MenuItem borderItem) {
         int rows = size / 9;
 
-        // Primera y última fila
         for (int i = 0; i < 9; i++) {
             setItem(i, borderItem);
             setItem(size - 9 + i, borderItem);
         }
 
-        // Bordes laterales
         for (int i = 1; i < rows - 1; i++) {
             setItem(i * 9, borderItem);
             setItem(i * 9 + 8, borderItem);

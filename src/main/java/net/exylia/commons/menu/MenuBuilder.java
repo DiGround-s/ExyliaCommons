@@ -1,6 +1,5 @@
 package net.exylia.commons.menu;
 
-import net.exylia.commons.config.ConfigManager;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -10,9 +9,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Constructor de menús a partir de archivos de configuración
- */
 public class MenuBuilder {
 
     private final JavaPlugin plugin;
@@ -76,7 +72,6 @@ public class MenuBuilder {
         List<Integer> slots = new ArrayList<>();
         int maxSlot = rows * 9 - 1;
 
-        // Comprobar formato de slot único (retrocompatibilidad)
         if (itemSection.contains("slot")) {
             int slot = itemSection.getInt("slot", -1);
             if (slot >= 0 && slot <= maxSlot) {
@@ -84,17 +79,14 @@ public class MenuBuilder {
             }
         }
 
-        // Comprobar formatos de slots como String
         if (itemSection.contains("slots") && itemSection.isString("slots")) {
             String slotsString = itemSection.getString("slots");
             if (slotsString != null) {
-                // Dividir por comas para manejar formato "4,9-17"
                 String[] parts = slotsString.split(",");
 
                 for (String part : parts) {
                     part = part.trim();
 
-                    // Comprobar si es un rango (contiene "-")
                     if (part.contains("-")) {
                         String[] range = part.split("-");
                         if (range.length == 2) {
@@ -102,7 +94,6 @@ public class MenuBuilder {
                                 int start = Integer.parseInt(range[0].trim());
                                 int end = Integer.parseInt(range[1].trim());
 
-                                // Asegurar que el rango esté dentro de los límites
                                 start = Math.max(0, start);
                                 end = Math.min(maxSlot, end);
 
@@ -110,11 +101,10 @@ public class MenuBuilder {
                                     slots.add(i);
                                 }
                             } catch (NumberFormatException e) {
-                                // Ignorar formato inválido
+                                // Ignorar
                             }
                         }
                     }
-                    // Si no es un rango, tratar como slot único
                     else {
                         try {
                             int slot = Integer.parseInt(part);
@@ -122,14 +112,14 @@ public class MenuBuilder {
                                 slots.add(slot);
                             }
                         } catch (NumberFormatException e) {
-                            // Ignorar formato inválido
+                            // Ignorar
                         }
                     }
                 }
             }
         }
 
-        // Comprobar formato de lista "slots: [0,1,2,3]"
+        // "slots: [0,1,2,3]"
         if (itemSection.contains("slots") && itemSection.isList("slots")) {
             List<Integer> slotsList = itemSection.getIntegerList("slots");
             for (int slot : slotsList) {
@@ -205,38 +195,31 @@ public class MenuBuilder {
      * @return Menú paginado creado o null si no existe la configuración
      */
     public PaginationMenu buildPaginationMenu(FileConfiguration menuConfig, Player player, int... itemSlots) {
-        // Propiedades básicas del menú
         String title = menuConfig.getString("title", "Menu");
         int rows = menuConfig.getInt("rows", 6);
 
-        // Crear menú de paginación
         PaginationMenu paginationMenu = new PaginationMenu(title, rows, itemSlots);
 
-        // Botón anterior
         ConfigurationSection prevSection = menuConfig.getConfigurationSection("prev_button");
         if (prevSection != null) {
             MenuItem prevButton = buildMenuItem(prevSection, player);
 
-            // Obtener slot(s) para el botón anterior
             List<Integer> prevSlots = getItemSlots(prevSection, rows);
             int prevSlot = prevSlots.isEmpty() ? (rows * 9 - 9) : prevSlots.get(0);
 
             paginationMenu.setPreviousPageButton(prevButton, prevSlot);
         }
 
-        // Botón siguiente
         ConfigurationSection nextSection = menuConfig.getConfigurationSection("next_button");
         if (nextSection != null) {
             MenuItem nextButton = buildMenuItem(nextSection, player);
 
-            // Obtener slot(s) para el botón siguiente
             List<Integer> nextSlots = getItemSlots(nextSection, rows);
             int nextSlot = nextSlots.isEmpty() ? (rows * 9 - 1) : nextSlots.get(0);
 
             paginationMenu.setNextPageButton(nextButton, nextSlot);
         }
 
-        // Ítem de relleno
         ConfigurationSection fillerSection = menuConfig.getConfigurationSection("filler");
         if (fillerSection != null) {
             MenuItem fillerItem = buildMenuItem(fillerSection, player);

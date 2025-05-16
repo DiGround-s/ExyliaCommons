@@ -53,7 +53,7 @@ public class PaginationMenu {
         this.maxItemsPerPage = itemSlots.length;
         this.items = new ArrayList<>();
 
-        // Botones de navegación por defecto
+        // default
         this.previousPageButton = new MenuItem(Material.ARROW)
                 .setName("&8« &7Página anterior")
                 .setAmount(1);
@@ -62,7 +62,7 @@ public class PaginationMenu {
                 .setName("&7Página siguiente &8»")
                 .setAmount(1);
 
-        // Posiciones de botones por defecto
+        // default
         this.previousPageButtonSlot = rows * 9 - 9;
         this.nextPageButtonSlot = rows * 9 - 1;
     }
@@ -167,7 +167,6 @@ public class PaginationMenu {
     public PaginationMenu disableDynamicUpdates() {
         this.dynamicUpdates = false;
 
-        // Cancelar todas las tareas pendientes
         for (Integer taskId : menuTasks.values()) {
             if (taskId != null && taskId != -1) {
                 Bukkit.getScheduler().cancelTask(taskId);
@@ -194,7 +193,6 @@ public class PaginationMenu {
      * @param page   Número de página
      */
     public void open(Player player, int page) {
-        // Cancelar cualquier tarea anterior para este jugador
         if (menuTasks.containsKey(player)) {
             Integer taskId = menuTasks.get(player);
             if (taskId != null && taskId != -1) {
@@ -203,7 +201,6 @@ public class PaginationMenu {
             menuTasks.remove(player);
         }
 
-        // Cancelar todas las tareas de actualización individual por ítem
         if (itemTasksMap.containsKey(player)) {
             Map<Integer, Integer> itemTasks = itemTasksMap.get(player);
             for (Integer taskId : itemTasks.values()) {
@@ -214,7 +211,6 @@ public class PaginationMenu {
             itemTasksMap.remove(player);
         }
 
-        // Obtener el menú anterior si existe (para poder cerrar correctamente)
         Menu previousMenu = activeMenus.get(player);
         if (previousMenu != null) {
             previousMenu.onClose(player);
@@ -223,7 +219,6 @@ public class PaginationMenu {
         int maxPages = (int) Math.ceil((double) items.size() / maxItemsPerPage);
         maxPages = Math.max(1, maxPages);
 
-        // Validar la página solicitada
         if (page < 1) {
             page = 1;
         } else if (page > maxPages) {
@@ -232,20 +227,15 @@ public class PaginationMenu {
 
         currentPage = page;
 
-        // Crear el menú para la página actual
         Menu menu = createMenuForPage(player, page, maxPages);
 
-        // Almacenar referencia al menú activo
         activeMenus.put(player, menu);
 
-        // Inicializar el mapa de tareas por ítem para este jugador si no existe
         if (!itemTasksMap.containsKey(player)) {
             itemTasksMap.put(player, new HashMap<>());
         }
 
-        // Configurar actualizaciones dinámicas para cada ítem si están habilitadas
         if (dynamicUpdates && plugin != null) {
-            // Programar actualizaciones individuales para cada ítem
             scheduleItemUpdates(player, menu);
         }
 
@@ -258,24 +248,18 @@ public class PaginationMenu {
      * @param menu Menú a actualizar
      */
     private void scheduleItemUpdates(Player player, Menu menu) {
-        // Obtener el mapa de tareas para este jugador
         Map<Integer, Integer> itemTasks = itemTasksMap.get(player);
 
-        // Recorrer todos los slots del menú
         for (int slot = 0; slot < rows * 9; slot++) {
             MenuItem item = menu.getItem(slot);
 
-            // Si el ítem necesita actualización dinámica y tiene placeholders
             if (item != null && item.needsDynamicUpdate() && item.usesPlaceholders()) {
                 final int finalSlot = slot;
 
-                // Programar una tarea específica para este ítem con su propio intervalo
                 int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
                     if (player.isOnline() && activeMenus.containsKey(player)) {
-                        // Actualizar solo este ítem específico
                         updateSingleItem(player, menu, finalSlot, item);
                     } else {
-                        // Si el jugador ya no está en línea, cancelar la tarea
                         Integer existingTaskId = itemTasks.get(finalSlot);
                         if (existingTaskId != null && existingTaskId != -1) {
                             Bukkit.getScheduler().cancelTask(existingTaskId);
@@ -284,7 +268,6 @@ public class PaginationMenu {
                     }
                 }, item.getUpdateInterval(), item.getUpdateInterval());
 
-                // Guardar referencia a la tarea para poder cancelarla después
                 itemTasks.put(slot, taskId);
             }
         }
@@ -300,10 +283,8 @@ public class PaginationMenu {
     private void updateSingleItem(Player player, Menu menu, int slot, MenuItem item) {
         if (menu == null || !player.isOnline()) return;
 
-        // Actualizar los placeholders del ítem
         item.updatePlaceholders(item.getPlaceholderPlayer() != null ? item.getPlaceholderPlayer() : player);
 
-        // Actualizar el ítem en el inventario
         menu.setItem(slot, item);
     }
 
@@ -312,7 +293,6 @@ public class PaginationMenu {
      * @param player Jugador que cerró el menú
      */
     public void cleanup(Player player) {
-        // Cancelar tareas de actualización global
         if (menuTasks.containsKey(player)) {
             Integer taskId = menuTasks.get(player);
             if (taskId != null && taskId != -1) {
@@ -321,7 +301,6 @@ public class PaginationMenu {
             menuTasks.remove(player);
         }
 
-        // Cancelar todas las tareas de actualización individual por ítem
         if (itemTasksMap.containsKey(player)) {
             Map<Integer, Integer> itemTasks = itemTasksMap.get(player);
             for (Integer taskId : itemTasks.values()) {
@@ -332,7 +311,6 @@ public class PaginationMenu {
             itemTasksMap.remove(player);
         }
 
-        // Eliminar referencia al menú activo
         activeMenus.remove(player);
     }
 
@@ -355,30 +333,24 @@ public class PaginationMenu {
      * @return Menú configurado para la página
      */
     private Menu createMenuForPage(Player player, int page, int maxPages) {
-        // Título con la página actual y total
         String title = baseTitle.replace("%page%", String.valueOf(page)).replace("%pages%", String.valueOf(maxPages));
 
-        // Procesar placeholders personalizados primero
         if (placeholderContext != null) {
             title = CustomPlaceholderManager.process(title, placeholderContext);
         }
 
-        // Procesar placeholders de PlaceholderAPI si está activado
         if (usePlaceholdersInTitle && MenuManager.isPlaceholderAPIEnabled()) {
             title = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, title);
         }
 
         Menu menu = new Menu(title, rows);
 
-        // Establecer un manejador de cierre personalizado para limpiar recursos
         menu.setCloseHandler(p -> {
-            // Solo limpiamos recursos si es un cierre real (no una navegación entre páginas)
             if (!activeMenus.containsKey(p) || activeMenus.get(p) != menu) {
                 cleanup(p);
             }
         });
 
-        // Botones de navegación
         if (page > 1) {
             MenuItem prevButton = previousPageButton.clone();
             if (prevButton.usesPlaceholders()) {
@@ -397,7 +369,6 @@ public class PaginationMenu {
             menu.setItem(nextPageButtonSlot, nextButton);
         }
 
-        // Rellenar con ítems
         int start = (page - 1) * maxItemsPerPage;
         int end = Math.min(start + maxItemsPerPage, items.size());
 
@@ -411,7 +382,6 @@ public class PaginationMenu {
             }
         }
 
-        // Aplicar relleno si se ha configurado
         if (fillerItem != null) {
             MenuItem filler = fillerItem.clone();
             if (filler.usesPlaceholders()) {
@@ -425,7 +395,6 @@ public class PaginationMenu {
             }
         }
 
-        // Aplicar personalizador si se ha configurado
         if (menuCustomizer != null) {
             menuCustomizer.accept(menu, page);
         }
@@ -458,7 +427,6 @@ public class PaginationMenu {
 
         clone.usePlaceholdersInTitle(usePlaceholdersInTitle);
 
-        // Copiar configuración de actualizaciones dinámicas
         if (dynamicUpdates) {
             clone.enableDynamicUpdates(plugin, updateInterval);
         }

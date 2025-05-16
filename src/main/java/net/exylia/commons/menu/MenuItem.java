@@ -393,12 +393,10 @@ public class MenuItem {
         for (String cmd : commands) {
             String processedCmd = cmd;
 
-            // Procesar placeholders personalizados primero
             if (placeholderContext != null) {
                 processedCmd = CustomPlaceholderManager.process(processedCmd, placeholderContext);
             }
 
-            // Luego procesar placeholders de PlaceholderAPI si está disponible
             if (MenuManager.isPlaceholderAPIEnabled()) {
                 processedCmd = PlaceholderAPI.setPlaceholders(
                         placeholderPlayer != null ? placeholderPlayer : player,
@@ -407,11 +405,9 @@ public class MenuItem {
             }
 
             if (processedCmd.startsWith("player: ")) {
-                // Comando ejecutado por el jugador
                 String playerCmd = processedCmd.substring(8).trim();
                 player.performCommand(playerCmd);
             } else if (processedCmd.startsWith("console: ")) {
-                // Comando ejecutado por la consola
                 String consoleCmd = processedCmd.substring(9).trim();
                 ConsoleCommandSender console = Bukkit.getConsoleSender();
                 Bukkit.dispatchCommand(console, consoleCmd);
@@ -427,35 +423,28 @@ public class MenuItem {
     public MenuItem updatePlaceholders(Player player) {
         if (!usePlaceholders) return this;
 
-        // Usar el placeholderPlayer específico si está configurado, de lo contrario usar el player proporcionado
         Player targetPlayer = (placeholderPlayer != null) ? placeholderPlayer : player;
 
         ItemMeta meta = itemStack.getItemMeta();
 
-        // Actualizar nombre si existe
         if (rawName != null && !rawName.isEmpty()) {
-            // Procesar placeholders personalizados primero
             String processedName = rawName;
             if (placeholderContext != null) {
                 processedName = CustomPlaceholderManager.process(processedName, placeholderContext);
             }
-            // Luego procesar placeholders de PlaceholderAPI si está disponible
             if (MenuManager.isPlaceholderAPIEnabled()) {
                 processedName = PlaceholderAPI.setPlaceholders(targetPlayer, processedName);
             }
             meta.displayName(ColorUtils.translateColors(processedName));
         }
 
-        // Actualizar lore si existe
         if (rawLore != null && !rawLore.isEmpty()) {
             List<Component> loreComponents = new ArrayList<>();
             for (String line : rawLore) {
-                // Procesar placeholders personalizados primero
                 String processedLine = line;
                 if (placeholderContext != null) {
                     processedLine = CustomPlaceholderManager.process(processedLine, placeholderContext);
                 }
-                // Luego procesar placeholders de PlaceholderAPI si está disponible
                 if (MenuManager.isPlaceholderAPIEnabled()) {
                     processedLine = PlaceholderAPI.setPlaceholders(targetPlayer, processedLine);
                 }
