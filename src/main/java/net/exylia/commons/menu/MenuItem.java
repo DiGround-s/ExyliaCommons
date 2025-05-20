@@ -1,7 +1,9 @@
 package net.exylia.commons.menu;
 
+import net.exylia.commons.utils.AdapterFactory;
 import net.exylia.commons.utils.ColorUtils;
 import me.clip.placeholderapi.PlaceholderAPI;
+import net.exylia.commons.utils.ItemMetaAdapter;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -27,6 +29,7 @@ import java.util.function.Consumer;
  */
 public class MenuItem {
     private ItemStack itemStack;
+    private final ItemMetaAdapter adapter = AdapterFactory.getItemMetaAdapter();
     private Consumer<MenuClickInfo> clickHandler;
     private String menuItemId;
     private String rawName;
@@ -63,7 +66,7 @@ public class MenuItem {
     public MenuItem setName(String name) {
         this.rawName = name;
         ItemMeta meta = itemStack.getItemMeta();
-        meta.displayName(ColorUtils.translateColors(name));
+        adapter.setDisplayName(meta, ColorUtils.translateColors(name));
         itemStack.setItemMeta(meta);
         return this;
     }
@@ -75,7 +78,7 @@ public class MenuItem {
      */
     public MenuItem setName(Component name) {
         ItemMeta meta = itemStack.getItemMeta();
-        meta.displayName(name);
+        adapter.setDisplayName(meta, name);
         itemStack.setItemMeta(meta);
         return this;
     }
@@ -94,7 +97,7 @@ public class MenuItem {
         }
 
         ItemMeta meta = itemStack.getItemMeta();
-        meta.lore(loreComponents);
+        adapter.setLore(meta, loreComponents);
         itemStack.setItemMeta(meta);
         return this;
     }
@@ -113,7 +116,7 @@ public class MenuItem {
         }
 
         ItemMeta meta = itemStack.getItemMeta();
-        meta.lore(loreComponents);
+        adapter.setLore(meta, loreComponents);
         itemStack.setItemMeta(meta);
         return this;
     }
@@ -125,7 +128,7 @@ public class MenuItem {
      */
     public MenuItem setLore(List<Component> lore) {
         ItemMeta meta = itemStack.getItemMeta();
-        meta.lore(lore);
+        adapter.setLore(meta, lore);
         itemStack.setItemMeta(meta);
         return this;
     }
@@ -417,11 +420,11 @@ public class MenuItem {
 
     /**
      * Actualiza los placeholders del ítem para un jugador específico
+     *
      * @param player Jugador para procesar los placeholders (si no hay un placeholderPlayer configurado)
-     * @return El mismo ítem (para encadenamiento)
      */
-    public MenuItem updatePlaceholders(Player player) {
-        if (!usePlaceholders) return this;
+    public void updatePlaceholders(Player player) {
+        if (!usePlaceholders) return;
 
         Player targetPlayer = (placeholderPlayer != null) ? placeholderPlayer : player;
 
@@ -435,7 +438,7 @@ public class MenuItem {
             if (MenuManager.isPlaceholderAPIEnabled()) {
                 processedName = PlaceholderAPI.setPlaceholders(targetPlayer, processedName);
             }
-            meta.displayName(ColorUtils.translateColors(processedName));
+            adapter.setDisplayName(meta, ColorUtils.translateColors(processedName));
         }
 
         if (rawLore != null && !rawLore.isEmpty()) {
@@ -450,11 +453,10 @@ public class MenuItem {
                 }
                 loreComponents.add(ColorUtils.translateColors(processedLine));
             }
-            meta.lore(loreComponents);
+            adapter.setLore(meta, loreComponents);
         }
 
         itemStack.setItemMeta(meta);
-        return this;
     }
 
     /**

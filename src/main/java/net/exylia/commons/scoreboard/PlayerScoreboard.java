@@ -42,7 +42,7 @@ public class PlayerScoreboard {
         // Create the scoreboard
         this.scoreboard = SCOREBOARD_MANAGER.getNewScoreboard();
         Component title = template.getTitle(player);
-        this.objective = scoreboard.registerNewObjective(OBJECTIVE_NAME, Criteria.DUMMY, title);
+        this.objective = scoreboard.registerNewObjective(OBJECTIVE_NAME, "dummy", title);
         this.objective.setDisplaySlot(DisplaySlot.SIDEBAR);
 
         // Start the update task if needed

@@ -1,7 +1,9 @@
 package net.exylia.commons.menu;
 
 import me.clip.placeholderapi.PlaceholderAPI;
+import net.exylia.commons.utils.AdapterFactory;
 import net.exylia.commons.utils.ColorUtils;
+import net.exylia.commons.utils.InventoryAdapter;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -35,6 +37,7 @@ public class Menu {
     private String rawTitle;
     private boolean usePlaceholdersInTitle = false;
     private Object titlePlaceholderContext = null;
+    private final InventoryAdapter inventoryAdapter = AdapterFactory.getInventoryAdapter();
 
     /**
      * Constructor del menú
@@ -225,7 +228,7 @@ public class Menu {
         if (inventory != null && viewer != null) {
             Player currentViewer = viewer;
 
-            Inventory newInventory = Bukkit.createInventory(null, size, title);
+            Inventory newInventory = inventoryAdapter.createInventory(size, title);
 
             for (int i = 0; i < size; i++) {
                 if (inventory.getItem(i) != null) {
@@ -248,7 +251,7 @@ public class Menu {
         }
 
         if (inventory == null) {
-            inventory = Bukkit.createInventory(null, size, title);
+            inventory = inventoryAdapter.createInventory(size, title);
 
             for (Map.Entry<Integer, MenuItem> entry : items.entrySet()) {
                 MenuItem item = entry.getValue();

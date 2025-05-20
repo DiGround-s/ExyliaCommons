@@ -1,5 +1,6 @@
 package net.exylia.commons.utils;
 
+import net.exylia.commons.ExyliaPlugin;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
@@ -26,8 +27,8 @@ import java.util.stream.Collectors;
 public class ColorUtils {
 
     private static final Map<Character, String> COLOR_MAP;
+    private static final Map<String, String> REVERSE_COLOR_MAP;
 
-    // Cache para componentes comunes
     private static final Map<String, Component> COMPONENT_CACHE = new ConcurrentHashMap<>();
     private static final int MAX_CACHE_SIZE = 500;
 
@@ -56,6 +57,12 @@ public class ColorUtils {
         map.put('o', "<italic>");
         map.put('r', "<reset>");
         COLOR_MAP = Map.copyOf(map);
+
+        Map<String, String> reverseMap = new HashMap<>();
+        for (Map.Entry<Character, String> entry : map.entrySet()) {
+            reverseMap.put(entry.getValue(), "&" + entry.getKey());
+        }
+        REVERSE_COLOR_MAP = Map.copyOf(reverseMap);
     }
 
     /**
@@ -74,14 +81,11 @@ public class ColorUtils {
             return cached;
         }
 
-        // Preprocesar todos los formatos de código de color
         String processed = preprocessColorCodes(message);
 
-        // Aplicar MiniMessage para interpretar todos los formatos
         Component result = MiniMessage.miniMessage().deserialize(processed)
                 .decoration(TextDecoration.ITALIC, false);
 
-        // Guardar en caché si no es demasiado grande
         if (message.length() <= 100) {
             cacheComponent(message, result);
         }
@@ -250,11 +254,50 @@ public class ColorUtils {
 
     /**
      * Traduce códigos de color usando el sistema antiguo de ChatColor
+     * y convierte etiquetas MiniMessage a formato legacy
      * @param message Mensaje con códigos de color
      * @return String con colores aplicados en formato legacy
      */
     public static String oldTranslateColors(String message) {
+        if (message == null || message.isEmpty()) {
+            return "";
+        }
+
+        message = message.replace("<!italic>", "").replace("<italic>", "&o").replace("</italic>", "&r");
+
+        for (Map.Entry<String, String> entry : REVERSE_COLOR_MAP.entrySet()) {
+            message = message.replace(entry.getKey(), entry.getValue());
+        }
+
         return ChatColor.translateAlternateColorCodes('&', GradientUtils.applyGradientsAndHex(message));
+    }
+
+    /**
+     * Convierte colores hexadecimales en formato MiniMessage a formato legacy
+     * @param message Mensaje con códigos hexadecimales
+     * @return Mensaje con códigos hexadecimales convertidos
+     */
+    private static String convertHexToLegacy(String message) {
+        StringBuilder result = new StringBuilder(message.length());
+        int length = message.length();
+
+        for (int i = 0; i < length; i++) {
+            if (i + 8 < length && message.charAt(i) == '<' && message.charAt(i + 1) == '#') {
+                int closeIndex = message.indexOf('>', i);
+                if (closeIndex != -1 && closeIndex - i <= 9) {
+                    String hexPart = message.substring(i + 2, closeIndex);
+                    if (hexPart.matches("[0-9a-fA-F]{6}")) {
+                        result.append("&#").append(hexPart);
+                        i = closeIndex;
+                        continue;
+                    }
+                }
+            }
+
+            result.append(message.charAt(i));
+        }
+
+        return result.toString();
     }
 
     /**
@@ -305,7 +348,7 @@ public class ColorUtils {
      * @param component Componente a enviar
      */
     public static void sendPlayerMessage(Player player, Component component) {
-        player.sendMessage(component);
+        ExyliaPlugin.getInstance().getAudience().player(player).sendMessage(component);
     }
 
     /**
@@ -314,7 +357,7 @@ public class ColorUtils {
      * @param component Componente a enviar
      */
     public static void sendSenderMessage(CommandSender sender, Component component) {
-        sender.sendMessage(component);
+        ExyliaPlugin.getInstance().getAudience().sender(sender).sendMessage(component);
     }
 
     /**
