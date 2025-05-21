@@ -8,13 +8,10 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -46,7 +43,7 @@ public class Menu {
      */
     public Menu(String title, int rows) {
         this.rawTitle = title;
-        this.title = ColorUtils.translateColors(title);
+        this.title = ColorUtils.parse(title);
         this.size = Math.max(9, Math.min(54, rows * 9)); // Entre 1 y 6 filas
         this.items = new HashMap<>();
     }
@@ -223,7 +220,7 @@ public class Menu {
             processedTitle = PlaceholderAPI.setPlaceholders(player, processedTitle);
         }
 
-        this.title = ColorUtils.translateColors(processedTitle);
+        this.title = ColorUtils.parse(processedTitle);
 
         if (inventory != null && viewer != null) {
             Player currentViewer = viewer;

@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 
+import static net.exylia.commons.utils.DebugUtils.logError;
+
 /**
  * Manager for automatically applying scoreboards to players when they join.
  */
@@ -106,14 +108,13 @@ public class AutoScoreboardManager implements Listener {
 
             try {
                 if (condition.apply(player)) {
-                    // Only show if they don't already have a scoreboard
                     if (!scoreboardManager.hasScoreboard(player)) {
                         scoreboardManager.showScoreboard(player, templateId);
                     }
-                    return; // Stop after first match
+                    return;
                 }
             } catch (Exception e) {
-                plugin.getLogger().warning("Error checking condition for template " + templateId + ": " + e.getMessage());
+                logError("Error checking condition for template " + templateId + ": " + e.getMessage());
             }
         }
     }
@@ -126,7 +127,7 @@ public class AutoScoreboardManager implements Listener {
             if (event.getPlayer().isOnline()) {
                 checkAndApply(event.getPlayer());
             }
-        }, 5L); // 5 tick delay (1/4 second)
+        }, 5L);
     }
 
     @EventHandler

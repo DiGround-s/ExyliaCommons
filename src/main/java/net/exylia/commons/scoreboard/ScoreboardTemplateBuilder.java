@@ -2,7 +2,6 @@ package net.exylia.commons.scoreboard;
 
 import net.exylia.commons.utils.ColorUtils;
 import net.kyori.adventure.text.Component;
-import org.bukkit.entity.Player;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -48,7 +47,7 @@ public class ScoreboardTemplateBuilder {
      * @return This builder instance
      */
     public ScoreboardTemplateBuilder title(String title) {
-        Component component = ColorUtils.translateColors(title);
+        Component component = ColorUtils.parse(title);
         this.titleProvider = new StaticContentProvider(component);
         return this;
     }
@@ -106,7 +105,7 @@ public class ScoreboardTemplateBuilder {
             throw new IllegalArgumentException("Line position must be between 0 and 15");
         }
 
-        Component component = ColorUtils.translateColors(content);
+        Component component = ColorUtils.parse(content);
         ContentProvider provider = new StaticContentProvider(component);
         lines.put(position, new ScoreboardTemplate.LineTemplate(provider, score, null));
         return this;

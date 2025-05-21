@@ -32,7 +32,7 @@ public class DynamicContentProvider implements ContentProvider {
     public static DynamicContentProvider fromString(Function<Player, String> stringFunction) {
         return new DynamicContentProvider(player -> {
             String content = stringFunction.apply(player);
-            return ColorUtils.translateColors(content);
+            return ColorUtils.parse(content);
         });
     }
 
@@ -45,7 +45,7 @@ public class DynamicContentProvider implements ContentProvider {
     public static DynamicContentProvider fromPlaceholder(String placeholderText) {
         return new DynamicContentProvider(player -> {
             String processed = ScoreboardUtil.setPlaceholders(player, placeholderText);
-            return ColorUtils.translateColors(processed);
+            return ColorUtils.parse(processed);
         });
     }
 

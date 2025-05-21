@@ -62,7 +62,7 @@ public class ConfigManager {
         }
 
         message = applyPrefix(message);
-        return ColorUtils.translateColors(message);
+        return ColorUtils.parse(message);
     }
 
     /**
@@ -73,7 +73,7 @@ public class ConfigManager {
     public Component getMessage(String path) {
         String message = getConfig("messages").getString(path, "<#a33b53>" + path + " not found in messages.yml");
         message = applyPrefix(message);
-        return ColorUtils.translateColors(message);
+        return ColorUtils.parse(message);
     }
     /**
      * Aplica placeholders al mensaje

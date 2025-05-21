@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static net.exylia.commons.utils.DebugUtils.logInfo;
+
 /**
  * Core manager for the Exylia Scoreboard system.
  * Controls all scoreboard templates and player scoreboard instances.
@@ -31,7 +33,7 @@ public class ExyliaScoreboardManager {
         this.placeholderAPIEnabled = ScoreboardUtil.isPlaceholderAPIEnabled();
 
         if (placeholderAPIEnabled) {
-            plugin.getLogger().info("PlaceholderAPI found, enabling placeholder support for scoreboards.");
+            logInfo("PlaceholderAPI found, enabling placeholder support for scoreboards.");
         }
     }
 

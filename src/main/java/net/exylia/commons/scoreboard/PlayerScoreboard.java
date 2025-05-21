@@ -10,6 +10,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.UUID;
 
+import static net.exylia.commons.utils.DebugUtils.logWarn;
+
 /**
  * Represents an active scoreboard instance for a player.
  * This applies a ScoreboardTemplate to a specific player.
@@ -138,7 +140,7 @@ public class PlayerScoreboard {
                 objective.getScore(entryName).setScore(lineTemplate.getScore());
             }
         } catch (Exception e) {
-            plugin.getLogger().warning("Error updating scoreboard for player " + player.getName() + ": " + e.getMessage());
+            logWarn("Error updating scoreboard for player " + player.getName() + ": " + e.getMessage());
         }
 
         return this;

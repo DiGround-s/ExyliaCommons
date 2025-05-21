@@ -39,7 +39,7 @@ public interface ContentProvider {
     static ContentProvider ofString(java.util.function.Function<Player, String> function) {
         return player -> {
             String content = function.apply(player);
-            return ColorUtils.translateColors(content);
+            return ColorUtils.parse(content);
         };
     }
 
@@ -60,7 +60,7 @@ public interface ContentProvider {
      * @return A content provider
      */
     static ContentProvider fixed(String text) {
-        Component component = ColorUtils.translateColors(text);
+        Component component = ColorUtils.parse(text);
         return new StaticContentProvider(component);
     }
 
@@ -73,7 +73,7 @@ public interface ContentProvider {
     static ContentProvider placeholder(String text) {
         return player -> {
             String processed = ScoreboardUtil.setPlaceholders(player, text);
-            return ColorUtils.translateColors(processed);
+            return ColorUtils.parse(processed);
         };
     }
 }

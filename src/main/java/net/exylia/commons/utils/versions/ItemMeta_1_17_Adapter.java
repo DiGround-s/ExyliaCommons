@@ -2,9 +2,10 @@ package net.exylia.commons.utils.versions;
 
 import net.exylia.commons.utils.ColorUtils;
 import net.exylia.commons.utils.ItemMetaAdapter;
+import net.exylia.commons.utils.OldColorUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.Bukkit;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
@@ -16,7 +17,7 @@ public class ItemMeta_1_17_Adapter implements ItemMetaAdapter {
     public void setDisplayName(ItemMeta meta, Component name) {
         // Convertir Component a String con códigos de color
         String miniMessageString = MiniMessage.miniMessage().serialize(name);
-        meta.setDisplayName(ColorUtils.oldTranslateColors(miniMessageString));
+        meta.setDisplayName(OldColorUtils.parseOld(miniMessageString));
     }
 
     @Override
@@ -24,8 +25,10 @@ public class ItemMeta_1_17_Adapter implements ItemMetaAdapter {
         // Convertir cada Component a String con códigos de color
         List<String> legacyLore = new ArrayList<>();
         for (Component line : lore) {
+            Bukkit.getLogger().info("-1. " + lore.toString());
             String miniMessageString = MiniMessage.miniMessage().serialize(line);
-            legacyLore.add(ColorUtils.oldTranslateColors(miniMessageString));
+            Bukkit.getLogger().info("0. " + miniMessageString);
+            legacyLore.add(OldColorUtils.parseOld(miniMessageString));
         }
         meta.setLore(legacyLore);
     }

@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static net.exylia.commons.utils.DebugUtils.logInfo;
+
 /**
  * Gestor de comandos para plugins
  * Permite registrar y gestionar comandos fácilmente
@@ -49,7 +51,7 @@ public class CommandManager {
         boolean success = command.register();
 
         if (success) {
-            plugin.getLogger().info("Comando /" + command.getName() + " registrado correctamente");
+            logInfo("Comando /" + command.getName() + " registrado correctamente");
         }
 
         return success;

@@ -1,12 +1,17 @@
 package net.exylia.commons;
 
 import net.exylia.commons.menu.MenuManager;
+import net.exylia.commons.utils.AdapterFactory;
+import net.exylia.commons.utils.Cache;
+import net.exylia.commons.utils.ColorUtils;
+import net.exylia.commons.utils.OldColorUtils;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
-import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashSet;
 import java.util.Set;
+
+import static net.exylia.commons.utils.DebugUtils.logInfo;
 
 public abstract class ExyliaPlugin extends JavaPlugin {
     private static boolean initialized = false;
@@ -27,7 +32,7 @@ public abstract class ExyliaPlugin extends JavaPlugin {
 
         onExyliaEnable();
 
-        getLogger().info("Plugin Exylia habilitado correctamente: " + getDescription().getName());
+        logInfo("Plugin Exylia habilitado correctamente: " + getDescription().getName());
     }
 
     @Override
@@ -46,7 +51,7 @@ public abstract class ExyliaPlugin extends JavaPlugin {
             initialized = false;
         }
 
-        getLogger().info("Plugin Exylia deshabilitado: " + getDescription().getName());
+        logInfo("Plugin Exylia deshabilitado: " + getDescription().getName());
     }
 
     public BukkitAudiences adventure() {
@@ -62,15 +67,13 @@ public abstract class ExyliaPlugin extends JavaPlugin {
 
     private void initializeExylia() {
         MenuManager.initialize(this);
+        AdapterFactory.initialize(this);
 
         checkOptionalDependencies();
 
-        getLogger().info("Núcleo Exylia inicializado correctamente");
+        logInfo("Núcleo Exylia inicializado correctamente");
     }
 
-    /**
-     * Comprueba y registra las dependencias opcionales
-     */
     private void checkOptionalDependencies() {
         // Ejemplo
 //        boolean vaultEnabled = Bukkit.getPluginManager().getPlugin("Vault") != null;
@@ -79,11 +82,11 @@ public abstract class ExyliaPlugin extends JavaPlugin {
 //        }
     }
 
-    /**
-     * Limpia los recursos globales de Exylia cuando todos los plugins son deshabilitados.
-     */
     private void shutdownExylia() {
-        getLogger().info("Limpiando recursos globales de Exylia");
+        logInfo("Limpiando recursos globales de Exylia");
+        ColorUtils.shutdown();
+        OldColorUtils.shutdown();
+        AdapterFactory.close();
     }
 
     /**

@@ -18,6 +18,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.*;
 import java.util.function.Consumer;
 
+import static net.exylia.commons.utils.DebugUtils.logInfo;
+
 /**
  * Sistema de gestión de menús interactivos para plugins de Exylia
  */
@@ -42,7 +44,7 @@ public class MenuManager implements Listener {
         placeholderAPIEnabled = Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null;
 
         if (placeholderAPIEnabled) {
-            plugin.getLogger().info("PlaceholderAPI detectado. Soporte de placeholders activado en menús.");
+            logInfo("PlaceholderAPI detectado. Soporte de placeholders activado en menús.");
         }
     }
 

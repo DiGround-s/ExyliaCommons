@@ -1,25 +1,38 @@
 package net.exylia.commons.utils;
 
-import net.exylia.commons.utils.versions.Inventory_1_17_Adapter;
-import net.exylia.commons.utils.versions.Inventory_1_18_Adapter;
-import net.exylia.commons.utils.versions.ItemMeta_1_17_Adapter;
-import net.exylia.commons.utils.versions.ItemMeta_1_18_Adapter;
+import net.exylia.commons.utils.versions.*;
 import org.bukkit.Bukkit;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import static net.exylia.commons.utils.DebugUtils.logError;
+import static net.exylia.commons.utils.DebugUtils.logWarn;
 
 public class AdapterFactory {
 
-    private static final ItemMetaAdapter itemMetaAdapter;
-    private static final InventoryAdapter inventoryAdapter;
+    private static ItemMetaAdapter itemMetaAdapter;
+    private static InventoryAdapter inventoryAdapter;
+    private static MessageAdapter messageAdapter;
+    private static JavaPlugin plugin;
 
-    static {
-        String version = Bukkit.getServer().getClass().getPackage().getName().split("\\.")[3];
+    public static void initialize(JavaPlugin mainPlugin) {
+        plugin = mainPlugin;
 
-        if (version.startsWith("v1_17") || version.startsWith("v1_16_") || version.startsWith("v1_15_") || version.startsWith("v1_14_")) {
+        String version = Bukkit.getBukkitVersion();
+
+        if (version.startsWith("1.17") || version.startsWith("1.16") || version.startsWith("1.15") || version.startsWith("1.14")) {
             itemMetaAdapter = new ItemMeta_1_17_Adapter();
             inventoryAdapter = new Inventory_1_17_Adapter();
+            messageAdapter = new Message_1_17_Adapter(plugin);
         } else {
             itemMetaAdapter = new ItemMeta_1_18_Adapter();
             inventoryAdapter = new Inventory_1_18_Adapter();
+            messageAdapter = new Message_1_18_Adapter(plugin);
+        }
+    }
+
+    public static void close() {
+        if (messageAdapter instanceof Message_1_17_Adapter) {
+            ((Message_1_17_Adapter) messageAdapter).close();
         }
     }
 
@@ -29,5 +42,17 @@ public class AdapterFactory {
 
     public static InventoryAdapter getInventoryAdapter() {
         return inventoryAdapter;
+    }
+
+    public static MessageAdapter getMessageAdapter() {
+        if (messageAdapter == null) {
+            logWarn("messageAdapter es nulo! Intentando inicializar...");
+            if (plugin != null) {
+                initialize(plugin);
+            } else {
+                logError("No se puede inicializar porque plugin es nulo!");
+            }
+        }
+        return messageAdapter;
     }
 }

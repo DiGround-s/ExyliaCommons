@@ -1,6 +1,7 @@
 package net.exylia.commons.utils;
 
 import net.md_5.bungee.api.ChatColor;
+import org.bukkit.Bukkit;
 
 import java.awt.*;
 import java.util.regex.Matcher;
@@ -21,6 +22,7 @@ public class GradientUtils {
      * @return Mensaje con gradientes y colores aplicados
      */
     public static String applyGradientsAndHex(String message) {
+        Bukkit.getLogger().info("3. Applying gradients and hex colors to message: " + message);
         message = applyHexColors(message);
         return applyGradients(message);
     }
@@ -71,29 +73,38 @@ public class GradientUtils {
      */
     private static String createGradient(String text, Color startColor, Color endColor) {
         StringBuilder builder = new StringBuilder();
+
         Matcher formatMatcher = FORMAT_PATTERN.matcher(text);
+        StringBuilder plainText = new StringBuilder();
+        StringBuilder formatBuilder = new StringBuilder();
 
-        int length = text.length();
-        int formatEnd = 0;
-        String currentFormat = "";
+        int lastEnd = 0;
+        while (formatMatcher.find()) {
+            plainText.append(text, lastEnd, formatMatcher.start());
+            formatBuilder.append(formatMatcher.group());
+            lastEnd = formatMatcher.end();
+        }
+        plainText.append(text.substring(lastEnd));
 
+        String plainString = plainText.toString();
+        String formats = formatBuilder.toString();
+
+        int length = plainString.length();
         for (int i = 0; i < length; i++) {
-            while (formatMatcher.find() && formatMatcher.start() == i) {
-                currentFormat += formatMatcher.group();
-                formatEnd = formatMatcher.end();
-            }
-
             double ratio = (double) i / (length - 1);
+            if (Double.isNaN(ratio)) ratio = 0;
+
             int red = (int) (startColor.getRed() * (1 - ratio) + endColor.getRed() * ratio);
             int green = (int) (startColor.getGreen() * (1 - ratio) + endColor.getGreen() * ratio);
             int blue = (int) (startColor.getBlue() * (1 - ratio) + endColor.getBlue() * ratio);
 
             builder.append(toChatColor(String.format("#%02x%02x%02x", red, green, blue)));
-            builder.append(currentFormat);
 
-            if (i >= formatEnd) {
-                builder.append(text.charAt(i));
+            if (!formats.isEmpty()) {
+                builder.append(formats);
             }
+
+            builder.append(plainString.charAt(i));
         }
 
         return builder.toString();

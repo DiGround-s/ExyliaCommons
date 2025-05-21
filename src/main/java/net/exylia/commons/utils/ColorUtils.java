@@ -1,201 +1,49 @@
 package net.exylia.commons.utils;
 
-import net.exylia.commons.ExyliaPlugin;
-import net.kyori.adventure.audience.Audience;
-import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.title.Title;
-import net.md_5.bungee.api.ChatColor;
-import org.bukkit.Bukkit;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 
-import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
  * Utilidades optimizadas para manejar colores y componentes de texto
- * con soporte para operaciones asíncronas
+ * utilizando MiniMessage con caché para mejorar el rendimiento
  */
 public class ColorUtils {
 
-    private static final Map<Character, String> COLOR_MAP;
-    private static final Map<String, String> REVERSE_COLOR_MAP;
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
-    private static final Map<String, Component> COMPONENT_CACHE = new ConcurrentHashMap<>();
-    private static final int MAX_CACHE_SIZE = 500;
-
-    static {
-        Map<Character, String> map = new HashMap<>();
-        map.put('0', "<black>");
-        map.put('1', "<dark_blue>");
-        map.put('2', "<dark_green>");
-        map.put('3', "<dark_aqua>");
-        map.put('4', "<dark_red>");
-        map.put('5', "<dark_purple>");
-        map.put('6', "<gold>");
-        map.put('7', "<gray>");
-        map.put('8', "<dark_gray>");
-        map.put('9', "<blue>");
-        map.put('a', "<green>");
-        map.put('b', "<aqua>");
-        map.put('c', "<red>");
-        map.put('d', "<light_purple>");
-        map.put('e', "<yellow>");
-        map.put('f', "<white>");
-        map.put('k', "<obfuscated>");
-        map.put('l', "<bold>");
-        map.put('m', "<strikethrough>");
-        map.put('n', "<underline>");
-        map.put('o', "<italic>");
-        map.put('r', "<reset>");
-        COLOR_MAP = Map.copyOf(map);
-
-        Map<String, String> reverseMap = new HashMap<>();
-        for (Map.Entry<Character, String> entry : map.entrySet()) {
-            reverseMap.put(entry.getValue(), "&" + entry.getKey());
-        }
-        REVERSE_COLOR_MAP = Map.copyOf(reverseMap);
-    }
+    private static final Cache<String, Component> COMPONENT_CACHE = new Cache<>(1800000, 500, 300000);
 
     /**
-     * Traduce códigos de color a componentes Adventure
+     * Traduce códigos de color a componentes Adventure con caché
+     *
      * @param message Mensaje con códigos de color
      * @return Componente con colores y formato aplicados
      */
-    public static Component translateColors(String message) {
+    public static Component parse(String message) {
         if (message == null) {
             return Component.empty();
         }
 
-        // Verificar caché primero
-        Component cached = COMPONENT_CACHE.get(message);
-        if (cached != null) {
-            return cached;
-        }
-
-        String processed = preprocessColorCodes(message);
-
-        Component result = MiniMessage.miniMessage().deserialize(processed)
-                .decoration(TextDecoration.ITALIC, false);
-
-        if (message.length() <= 100) {
-            cacheComponent(message, result);
-        }
-
-        return result;
+        // Usar cache para evitar reprocesamiento
+        return COMPONENT_CACHE.get(message, key -> {
+            String processed = preprocessColorCodes(key);
+            return MINI_MESSAGE.deserialize(processed)
+                    .decoration(TextDecoration.ITALIC, false);
+        });
     }
 
     /**
-     * Preprocesa todos los formatos de código de color a formato MiniMessage
-     * @param message Mensaje con códigos de color en cualquier formato
-     * @return Mensaje con todos los códigos de color convertidos a formato MiniMessage
-     */
-    private static String preprocessColorCodes(String message) {
-        if (message != null && !message.isEmpty()) {
-            StringBuilder builder = new StringBuilder(message.length() + 32);
-            int length = message.length();
-
-            for(int i = 0; i < length; ++i) {
-                char c = message.charAt(i);
-
-                if (c == '<' && i + 1 < length) {
-                    int closeIndex = message.indexOf('>', i);
-                    if (closeIndex != -1) {
-                        String tag = message.substring(i, closeIndex + 1).toLowerCase();
-
-                        if (tag.contains("gradient:") || tag.contains("rainbow") ||
-                                tag.startsWith("<hover") || tag.startsWith("<click")) {
-                            builder.append(message.substring(i, closeIndex + 1));
-                            i = closeIndex;
-                            continue;
-                        }
-                    }
-                }
-
-                if (c == '&' && i + 1 < length) {
-                    char next = message.charAt(i + 1);
-                    if ((next < '0' || next > '9') && (next < 'a' || next > 'f') && "klmnor".indexOf(next) == -1) {
-                        if (next == '#' && i + 8 < length) {
-                            String hexColor = message.substring(i + 2, i + 8);
-                            if (hexColor.matches("[0-9a-fA-F]{6}")) {
-                                builder.append("<#").append(hexColor.toLowerCase()).append(">");
-                                i += 7;
-                                continue;
-                            }
-                        }
-                    } else {
-                        String replacement = COLOR_MAP.get(next);
-                        if (replacement != null) {
-                            builder.append(replacement);
-                            ++i;
-                            continue;
-                        }
-                    }
-                }
-
-                if (c == '<' && i + 8 < length && message.charAt(i + 1) == '#') {
-                    int closeIndex = message.indexOf('>', i + 8);
-                    if (closeIndex != -1 && closeIndex - i <= 9) {
-                        String hexPart = message.substring(i + 2, closeIndex);
-                        if (hexPart.matches("[0-9a-fA-F]{6}")) {
-                            builder.append(message.substring(i, closeIndex + 1));
-                            i = closeIndex;
-                            continue;
-                        }
-                    }
-                }
-
-                if (c == '#' && i + 6 < length) {
-                    String hexColor = message.substring(i + 1, i + 7);
-                    if (hexColor.matches("[0-9a-fA-F]{6}")) {
-                        builder.append("<#").append(hexColor.toLowerCase()).append(">");
-                        i += 6;
-                        continue;
-                    }
-                }
-
-                builder.append(c);
-            }
-
-            return builder.toString();
-        } else {
-            return "";
-        }
-    }
-
-
-    private static boolean isAdvancedMiniMessageTag(String text, int startIndex) {
-        String[] advancedTags = {"gradient:", "rainbow", "hover", "click"};
-
-        int closeIndex = text.indexOf('>', startIndex);
-        if (closeIndex == -1) return false;
-
-        String tag = text.substring(startIndex, closeIndex + 1).toLowerCase();
-
-        for (String advancedTag : advancedTags) {
-            if (tag.contains(advancedTag)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Traduce códigos de color asíncronamente
+     * Traduce códigos de color a componentes Adventure de forma asíncrona
      * @param message Mensaje con códigos de color
      * @return CompletableFuture con el componente procesado
      */
-    public static CompletableFuture<Component> translateColorsAsync(String message) {
-        return CompletableFuture.supplyAsync(() -> translateColors(message));
+    public static CompletableFuture<Component> parseAsync(String message) {
+        return CompletableFuture.supplyAsync(() -> parse(message));
     }
 
     /**
@@ -203,9 +51,9 @@ public class ColorUtils {
      * @param messages Lista de mensajes con códigos de color
      * @return Lista de componentes procesados
      */
-    public static List<Component> translateColors(List<String> messages) {
+    public static List<Component> parse(List<String> messages) {
         return messages.stream()
-                .map(ColorUtils::translateColors)
+                .map(ColorUtils::parse)
                 .collect(Collectors.toList());
     }
 
@@ -214,8 +62,52 @@ public class ColorUtils {
      * @param messages Lista de mensajes con códigos de color
      * @return CompletableFuture con la lista de componentes
      */
-    public static CompletableFuture<List<Component>> translateColorsAsync(List<String> messages) {
-        return CompletableFuture.supplyAsync(() -> translateColors(messages));
+    public static CompletableFuture<List<Component>> parseAsync(List<String> messages) {
+        return CompletableFuture.supplyAsync(() -> parse(messages));
+    }
+
+    /**
+     * Preprocesa códigos de color ampersand (&) a formato MiniMessage
+     * @param message Mensaje con códigos de color
+     * @return Mensaje con códigos convertidos a formato MiniMessage
+     */
+    private static String preprocessColorCodes(String message) {
+        if (message == null || message.isEmpty()) {
+            return "";
+        }
+
+        message = message.replace('§', '&');
+
+        // Convertir códigos &# a <#hexcode>
+        message = message.replaceAll("&#([0-9a-fA-F]{6})", "<#$1>");
+
+        // Convertir códigos simples &x a sus equivalentes MiniMessage
+        message = message.replace("&0", "<black>");
+        message = message.replace("&1", "<dark_blue>");
+        message = message.replace("&2", "<dark_green>");
+        message = message.replace("&3", "<dark_aqua>");
+        message = message.replace("&4", "<dark_red>");
+        message = message.replace("&5", "<dark_purple>");
+        message = message.replace("&6", "<gold>");
+        message = message.replace("&7", "<gray>");
+        message = message.replace("&8", "<dark_gray>");
+        message = message.replace("&9", "<blue>");
+        message = message.replace("&a", "<green>");
+        message = message.replace("&b", "<aqua>");
+        message = message.replace("&c", "<red>");
+        message = message.replace("&d", "<light_purple>");
+        message = message.replace("&e", "<yellow>");
+        message = message.replace("&f", "<white>");
+
+        // Convertir códigos de formato
+        message = message.replace("&k", "<obfuscated>");
+        message = message.replace("&l", "<bold>");
+        message = message.replace("&m", "<strikethrough>");
+        message = message.replace("&n", "<underlined>");
+        message = message.replace("&o", "<italic>");
+        message = message.replace("&r", "<reset>");
+
+        return message;
     }
 
     /**
@@ -241,301 +133,32 @@ public class ColorUtils {
         }
 
         // Si es un código de color con "&" (ej: &f)
-        if (input.startsWith("&") && input.length() == 2) {
-            String replacement = COLOR_MAP.get(input.charAt(1));
-            if (replacement != null) {
-                return replacement;
-            }
-        }
-
-        DebugUtils.logWarn("No se pudo normalizar el color: " + input + ". Usando color blanco por defecto.");
-        return "<#ffffff>";
+        return switch (input) {
+            case "&0" -> "<black>";
+            case "&1" -> "<dark_blue>";
+            case "&2" -> "<dark_green>";
+            case "&3" -> "<dark_aqua>";
+            case "&4" -> "<dark_red>";
+            case "&5" -> "<dark_purple>";
+            case "&6" -> "<gold>";
+            case "&7" -> "<gray>";
+            case "&8" -> "<dark_gray>";
+            case "&9" -> "<blue>";
+            case "&a" -> "<green>";
+            case "&b" -> "<aqua>";
+            case "&c" -> "<red>";
+            case "&d" -> "<light_purple>";
+            case "&e" -> "<yellow>";
+            case "&f" -> "<white>";
+            default -> "<#ffffff>";
+        };
     }
 
-    /**
-     * Traduce códigos de color usando el sistema antiguo de ChatColor
-     * y convierte etiquetas MiniMessage a formato legacy
-     * @param message Mensaje con códigos de color
-     * @return String con colores aplicados en formato legacy
-     */
-    public static String oldTranslateColors(String message) {
-        if (message == null || message.isEmpty()) {
-            return "";
-        }
-
-        message = message.replace("<!italic>", "").replace("<italic>", "&o").replace("</italic>", "&r");
-
-        for (Map.Entry<String, String> entry : REVERSE_COLOR_MAP.entrySet()) {
-            message = message.replace(entry.getKey(), entry.getValue());
-        }
-
-        return ChatColor.translateAlternateColorCodes('&', GradientUtils.applyGradientsAndHex(message));
-    }
-
-    /**
-     * Convierte colores hexadecimales en formato MiniMessage a formato legacy
-     * @param message Mensaje con códigos hexadecimales
-     * @return Mensaje con códigos hexadecimales convertidos
-     */
-    private static String convertHexToLegacy(String message) {
-        StringBuilder result = new StringBuilder(message.length());
-        int length = message.length();
-
-        for (int i = 0; i < length; i++) {
-            if (i + 8 < length && message.charAt(i) == '<' && message.charAt(i + 1) == '#') {
-                int closeIndex = message.indexOf('>', i);
-                if (closeIndex != -1 && closeIndex - i <= 9) {
-                    String hexPart = message.substring(i + 2, closeIndex);
-                    if (hexPart.matches("[0-9a-fA-F]{6}")) {
-                        result.append("&#").append(hexPart);
-                        i = closeIndex;
-                        continue;
-                    }
-                }
-            }
-
-            result.append(message.charAt(i));
-        }
-
-        return result.toString();
-    }
-
-    /**
-     * Envía un mensaje con colores a un jugador
-     * @param player Jugador destinatario
-     * @param message Mensaje con códigos de color
-     */
-    public static void sendPlayerMessage(Player player, String message) {
-        Component component = translateColors(message);
-        player.sendMessage(component);
-    }
-
-    /**
-     * Envía un mensaje con colores a un jugador asíncronamente
-     * @param player Jugador destinatario
-     * @param message Mensaje con códigos de color
-     * @return CompletableFuture que completa cuando se envía el mensaje
-     */
-    public static CompletableFuture<Void> sendPlayerMessageAsync(Player player, String message) {
-        return translateColorsAsync(message)
-                .thenAccept(player::sendMessage);
-    }
-
-    /**
-     * Envía un mensaje con colores a un CommandSender
-     * @param sender Destinatario del mensaje
-     * @param message Mensaje con códigos de color
-     */
-    public static void sendSenderMessage(CommandSender sender, String message) {
-        Component component = translateColors(message);
-        sender.sendMessage(component);
-    }
-
-    /**
-     * Envía un mensaje con colores a un CommandSender asíncronamente
-     * @param sender Destinatario del mensaje
-     * @param message Mensaje con códigos de color
-     * @return CompletableFuture que completa cuando se envía el mensaje
-     */
-    public static CompletableFuture<Void> sendSenderMessageAsync(CommandSender sender, String message) {
-        return translateColorsAsync(message)
-                .thenAccept(sender::sendMessage);
-    }
-
-    /**
-     * Envía un componente a un jugador
-     * @param player Jugador destinatario
-     * @param component Componente a enviar
-     */
-    public static void sendPlayerMessage(Player player, Component component) {
-        ExyliaPlugin.getInstance().getAudience().player(player).sendMessage(component);
-    }
-
-    /**
-     * Envía un componente a un CommandSender
-     * @param sender Destinatario del mensaje
-     * @param component Componente a enviar
-     */
-    public static void sendSenderMessage(CommandSender sender, Component component) {
-        ExyliaPlugin.getInstance().getAudience().sender(sender).sendMessage(component);
-    }
-
-    /**
-     * Muestra una barra de jefe a un jugador
-     * @param player Jugador al que mostrar la barra
-     * @param bossBar Barra de jefe a mostrar
-     */
-    public static void showPlayerBossBar(Player player, BossBar bossBar) {
-        player.showBossBar(bossBar);
-    }
-
-    /**
-     * Muestra una barra de jefe a todos los jugadores
-     * @param bossBar Barra de jefe a mostrar
-     */
-    public static void showPlayersBossBar(BossBar bossBar) {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            player.showBossBar(bossBar);
-        }
-    }
-
-    /**
-     * Muestra una barra de jefe a todos los jugadores asíncronamente
-     * @param bossBar Barra de jefe a mostrar
-     * @return CompletableFuture que completa cuando la barra ha sido mostrada
-     */
-    public static CompletableFuture<Void> showPlayersBossBarAsync(BossBar bossBar) {
-        return CompletableFuture.runAsync(() -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                player.showBossBar(bossBar);
-            }
-        });
-    }
-
-    /**
-     * Oculta una barra de jefe para un jugador
-     * @param player Jugador al que ocultar la barra
-     * @param bossBar Barra de jefe a ocultar
-     */
-    public static void hidePlayerBossBar(Player player, BossBar bossBar) {
-        player.hideBossBar(bossBar);
-    }
-
-    /**
-     * Oculta una barra de jefe para todos los jugadores
-     * @param bossBar Barra de jefe a ocultar
-     */
-    public static void hidePlayersBossBar(BossBar bossBar) {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            player.hideBossBar(bossBar);
-        }
-    }
-
-    /**
-     * Oculta una barra de jefe para todos los jugadores asíncronamente
-     * @param bossBar Barra de jefe a ocultar
-     * @return CompletableFuture que completa cuando la barra ha sido ocultada
-     */
-    public static CompletableFuture<Void> hidePlayersBossBarAsync(BossBar bossBar) {
-        return CompletableFuture.runAsync(() -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                player.hideBossBar(bossBar);
-            }
-        });
-    }
-
-    /**
-     * Muestra un título a un jugador
-     * @param player Jugador al que mostrar el título
-     * @param title Título a mostrar
-     */
-    public static void sendPlayerTitle(Player player, Title title) {
-        player.showTitle(title);
-    }
-
-    /**
-     * Crea un título a partir de mensajes con códigos de color
-     * @param main Texto principal del título
-     * @param subtitle Subtítulo
-     * @param fadeIn Tiempo de aparición (ticks)
-     * @param stay Tiempo que permanece visible (ticks)
-     * @param fadeOut Tiempo de desaparición (ticks)
-     * @return Objeto Title configurado
-     */
-    public static Title createTitle(String main, String subtitle, int fadeIn, int stay, int fadeOut) {
-        Component mainComponent = translateColors(main);
-        Component subtitleComponent = translateColors(subtitle);
-
-        return Title.title(
-                mainComponent,
-                subtitleComponent,
-                Title.Times.of(
-                        Duration.ofMillis(fadeIn * 50L),
-                        Duration.ofMillis(stay * 50L),
-                        Duration.ofMillis(fadeOut * 50L)
-                )
-        );
-    }
-
-    /**
-     * Crea y muestra un título a un jugador en una sola operación
-     * @param player Jugador destinatario
-     * @param main Texto principal del título
-     * @param subtitle Subtítulo
-     * @param fadeIn Tiempo de aparición (ticks)
-     * @param stay Tiempo que permanece visible (ticks)
-     * @param fadeOut Tiempo de desaparición (ticks)
-     */
-    public static void sendPlayerTitle(Player player, String main, String subtitle,
-                                       int fadeIn, int stay, int fadeOut) {
-        Title title = createTitle(main, subtitle, fadeIn, stay, fadeOut);
-        player.showTitle(title);
-    }
-
-    /**
-     * Envía un mensaje con colores a todos los jugadores
-     * @param message Mensaje con códigos de color
-     */
-    public static void sendBroadcastMessage(String message) {
-        Component component = translateColors(message);
-        Bukkit.broadcast(component);
-    }
-
-    /**
-     * Envía un mensaje con colores a todos los jugadores asíncronamente
-     * @param message Mensaje con códigos de color
-     * @return CompletableFuture que completa cuando el mensaje ha sido enviado
-     */
-    public static CompletableFuture<Void> sendBroadcastMessageAsync(String message) {
-        return translateColorsAsync(message)
-                .thenAccept(Bukkit::broadcast);
-    }
-
-    /**
-     * Envía un mensaje a múltiples audiencias de forma eficiente
-     * @param audiences Lista de audiencias (jugadores, consola, etc.)
-     * @param message Mensaje con códigos de color
-     */
-    public static void sendToAudiences(List<? extends Audience> audiences, String message) {
-        Component component = translateColors(message);
-        audiences.forEach(audience -> audience.sendMessage(component));
-    }
-
-    /**
-     * Envía un mensaje a múltiples audiencias de forma eficiente y asíncrona
-     * @param audiences Lista de audiencias (jugadores, consola, etc.)
-     * @param message Mensaje con códigos de color
-     * @return CompletableFuture que completa cuando todos los mensajes han sido enviados
-     */
-    public static CompletableFuture<Void> sendToAudiencesAsync(List<? extends Audience> audiences, String message) {
-        return translateColorsAsync(message)
-                .thenAccept(component ->
-                        audiences.forEach(audience -> audience.sendMessage(component))
-                );
-    }
-
-    /**
-     * Guarda un componente en caché para su reutilización
-     * @param key Mensaje original como clave
-     * @param component Componente procesado
-     */
-    private static void cacheComponent(String key, Component component) {
-        // Evitar desbordamiento de caché
-        if (COMPONENT_CACHE.size() >= MAX_CACHE_SIZE) {
-            // Simple política de eliminación: eliminar una entrada aleatoria
-            if (!COMPONENT_CACHE.isEmpty()) {
-                String randomKey = COMPONENT_CACHE.keySet().iterator().next();
-                COMPONENT_CACHE.remove(randomKey);
-            }
-        }
-
-        COMPONENT_CACHE.put(key, component);
-    }
-
-    /**
-     * Limpia la caché de componentes
-     */
     public static void clearCache() {
         COMPONENT_CACHE.clear();
+    }
+
+    public static void shutdown() {
+        COMPONENT_CACHE.shutdown();
     }
 }

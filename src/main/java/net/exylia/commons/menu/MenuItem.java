@@ -66,7 +66,7 @@ public class MenuItem {
     public MenuItem setName(String name) {
         this.rawName = name;
         ItemMeta meta = itemStack.getItemMeta();
-        adapter.setDisplayName(meta, ColorUtils.translateColors(name));
+        adapter.setDisplayName(meta, ColorUtils.parse(name));
         itemStack.setItemMeta(meta);
         return this;
     }
@@ -93,7 +93,7 @@ public class MenuItem {
 
         List<Component> loreComponents = new ArrayList<>();
         for (String line : lore) {
-            loreComponents.add(ColorUtils.translateColors(line));
+            loreComponents.add(ColorUtils.parse(line));
         }
 
         ItemMeta meta = itemStack.getItemMeta();
@@ -112,7 +112,7 @@ public class MenuItem {
 
         List<Component> loreComponents = new ArrayList<>();
         for (String line : lore) {
-            loreComponents.add(ColorUtils.translateColors(line));
+            loreComponents.add(ColorUtils.parse(line));
         }
 
         ItemMeta meta = itemStack.getItemMeta();
@@ -438,7 +438,7 @@ public class MenuItem {
             if (MenuManager.isPlaceholderAPIEnabled()) {
                 processedName = PlaceholderAPI.setPlaceholders(targetPlayer, processedName);
             }
-            adapter.setDisplayName(meta, ColorUtils.translateColors(processedName));
+            adapter.setDisplayName(meta, ColorUtils.parse(processedName));
         }
 
         if (rawLore != null && !rawLore.isEmpty()) {
@@ -451,7 +451,7 @@ public class MenuItem {
                 if (MenuManager.isPlaceholderAPIEnabled()) {
                     processedLine = PlaceholderAPI.setPlaceholders(targetPlayer, processedLine);
                 }
-                loreComponents.add(ColorUtils.translateColors(processedLine));
+                loreComponents.add(ColorUtils.parse(processedLine));
             }
             adapter.setLore(meta, loreComponents);
         }

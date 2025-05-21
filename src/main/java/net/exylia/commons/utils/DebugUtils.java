@@ -37,7 +37,7 @@ public class DebugUtils {
      */
     public static void logDebug(Boolean enabled, String message){
         if (!enabled) return;
-        Bukkit.getConsoleSender().sendMessage(convertHexColors(ColorUtils.translateColors(prefix + "<#e7cfff>[DEBUG] " + message)));
+        Bukkit.getConsoleSender().sendMessage(convertHexColors(ColorUtils.parse(prefix + "<#e7cfff>[DEBUG] " + message)));
     }
 
     /**
@@ -45,7 +45,7 @@ public class DebugUtils {
      * @param message Mensaje de error
      */
     public static void logError(String message){
-        Bukkit.getConsoleSender().sendMessage(convertHexColors(ColorUtils.translateColors(prefix + "<#a33b53>[ERROR] " + message)));
+        Bukkit.getConsoleSender().sendMessage(convertHexColors(ColorUtils.parse(prefix + "<#a33b53>[ERROR] " + message)));
     }
 
     /**
@@ -53,7 +53,7 @@ public class DebugUtils {
      * @param message Mensaje de advertencia
      */
     public static void logWarn(String message){
-        Bukkit.getConsoleSender().sendMessage(convertHexColors(ColorUtils.translateColors(prefix + "<#ffc58f>[WARN] " + message)));
+        Bukkit.getConsoleSender().sendMessage(convertHexColors(ColorUtils.parse(prefix + "<#ffc58f>[WARN] " + message)));
     }
 
     /**
@@ -61,7 +61,7 @@ public class DebugUtils {
      * @param message Mensaje informativo
      */
     public static void logInfo(String message){
-        Bukkit.getConsoleSender().sendMessage(convertHexColors(ColorUtils.translateColors(prefix + "<#59a4ff>[INFO] " + message)));
+        Bukkit.getConsoleSender().sendMessage(convertHexColors(ColorUtils.parse(prefix + "<#59a4ff>[INFO] " + message)));
     }
 
     /**
@@ -69,7 +69,7 @@ public class DebugUtils {
      * @param message Mensaje a registrar
      */
     public static void log(String message){
-        Bukkit.getConsoleSender().sendMessage(convertHexColors(ColorUtils.translateColors(prefix + message)));
+        Bukkit.getConsoleSender().sendMessage(convertHexColors(ColorUtils.parse(prefix + message)));
     }
 
     /**
