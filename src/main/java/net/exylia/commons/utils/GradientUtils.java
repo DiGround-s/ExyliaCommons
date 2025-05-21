@@ -22,7 +22,6 @@ public class GradientUtils {
      * @return Mensaje con gradientes y colores aplicados
      */
     public static String applyGradientsAndHex(String message) {
-        Bukkit.getLogger().info("3. Applying gradients and hex colors to message: " + message);
         message = applyHexColors(message);
         return applyGradients(message);
     }

@@ -54,7 +54,32 @@ public class OldColorUtils {
                     .replace("<reset>", "&r")
                     .replace("<!italic>", "");
 
+            // Need to add all the closing tags replacement
+            processed = processed
+                    .replace("</black>", "&r")
+                    .replace("</dark_blue>", "&r")
+                    .replace("</dark_green>", "&r")
+                    .replace("</dark_aqua>", "&r")
+                    .replace("</dark_red>", "&r")
+                    .replace("</dark_purple>", "&r")
+                    .replace("</gold>", "&r")
+                    .replace("</gray>", "&r")
+                    .replace("</dark_gray>", "&r")
+                    .replace("</blue>", "&r")
+                    .replace("</green>", "&r")
+                    .replace("</aqua>", "&r")
+                    .replace("</red>", "&r")
+                    .replace("</light_purple>", "&r")
+                    .replace("</yellow>", "&r")
+                    .replace("</white>", "&r")
+                    .replace("</obfuscated>", "&r")
+                    .replace("</bold>", "&r")
+                    .replace("</strikethrough>", "&r")
+                    .replace("</underlined>", "&r")
+                    .replace("</reset>", "&r");
+
             processed = processed.replaceAll("<#([0-9a-fA-F]{6})>", "<#$1>");
+            processed = processed.replaceAll("</#[0-9a-fA-F]{6}>", "&r");
 
             Pattern pattern = Pattern.compile("(&[0-9a-fA-F])(&[klmnor])+|(&[klmnor])+(&[0-9a-fA-F])");
             Matcher matcher = pattern.matcher(processed);

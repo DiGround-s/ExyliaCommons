@@ -25,9 +25,7 @@ public class ItemMeta_1_17_Adapter implements ItemMetaAdapter {
         // Convertir cada Component a String con códigos de color
         List<String> legacyLore = new ArrayList<>();
         for (Component line : lore) {
-            Bukkit.getLogger().info("-1. " + lore.toString());
             String miniMessageString = MiniMessage.miniMessage().serialize(line);
-            Bukkit.getLogger().info("0. " + miniMessageString);
             legacyLore.add(OldColorUtils.parseOld(miniMessageString));
         }
         meta.setLore(legacyLore);
