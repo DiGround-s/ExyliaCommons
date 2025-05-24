@@ -1,8 +1,8 @@
 package net.exylia.commons;
 
+import net.exylia.commons.command.BungeeMessageSender;
 import net.exylia.commons.menu.MenuManager;
 import net.exylia.commons.utils.AdapterFactory;
-import net.exylia.commons.utils.Cache;
 import net.exylia.commons.utils.ColorUtils;
 import net.exylia.commons.utils.OldColorUtils;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
@@ -68,6 +68,7 @@ public abstract class ExyliaPlugin extends JavaPlugin {
     private void initializeExylia() {
         MenuManager.initialize(this);
         AdapterFactory.initialize(this);
+        BungeeMessageSender.initialize(this);
 
         checkOptionalDependencies();
 

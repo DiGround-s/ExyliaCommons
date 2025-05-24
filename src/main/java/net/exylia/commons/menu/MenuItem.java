@@ -1,5 +1,6 @@
 package net.exylia.commons.menu;
 
+import net.exylia.commons.command.BungeeMessageSender;
 import net.exylia.commons.utils.AdapterFactory;
 import net.exylia.commons.utils.ColorUtils;
 import me.clip.placeholderapi.PlaceholderAPI;
@@ -23,6 +24,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
+
+import static net.exylia.commons.utils.DebugUtils.logWarn;
 
 /**
  * Representa un ítem interactivo en un menú
@@ -414,6 +417,15 @@ public class MenuItem {
                 String consoleCmd = processedCmd.substring(9).trim();
                 ConsoleCommandSender console = Bukkit.getConsoleSender();
                 Bukkit.dispatchCommand(console, consoleCmd);
+            } else if (processedCmd.startsWith("bungee: ")) {
+                String bungeeCmd = processedCmd.substring(8).trim();
+
+                if (!BungeeMessageSender.isInitialized()) {
+                    logWarn("BungeeMessageSender no está inicializado. No se puede ejecutar comando bungee: " + bungeeCmd);
+                    return;
+                }
+
+                BungeeMessageSender.sendCommand(player, bungeeCmd);
             }
         }
     }
