@@ -1,6 +1,7 @@
 package net.exylia.commons.menu;
 
 import net.exylia.commons.command.BungeeMessageSender;
+import net.exylia.commons.command.CommandExecutor;
 import net.exylia.commons.utils.AdapterFactory;
 import net.exylia.commons.utils.ColorUtils;
 import me.clip.placeholderapi.PlaceholderAPI;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import static net.exylia.commons.ExyliaPlugin.isPlaceholderAPIEnabled;
 import static net.exylia.commons.utils.DebugUtils.logWarn;
 
 /**
@@ -394,40 +396,10 @@ public class MenuItem {
      * @param player Jugador que hace clic en el ítem
      */
     public void executeCommands(Player player) {
-        if (commands.isEmpty()) return;
-
-        for (String cmd : commands) {
-            String processedCmd = cmd;
-
-            if (placeholderContext != null) {
-                processedCmd = CustomPlaceholderManager.process(processedCmd, placeholderContext);
-            }
-
-            if (MenuManager.isPlaceholderAPIEnabled()) {
-                processedCmd = PlaceholderAPI.setPlaceholders(
-                        placeholderPlayer != null ? placeholderPlayer : player,
-                        processedCmd
-                );
-            }
-
-            if (processedCmd.startsWith("player: ")) {
-                String playerCmd = processedCmd.substring(8).trim();
-                player.performCommand(playerCmd);
-            } else if (processedCmd.startsWith("console: ")) {
-                String consoleCmd = processedCmd.substring(9).trim();
-                ConsoleCommandSender console = Bukkit.getConsoleSender();
-                Bukkit.dispatchCommand(console, consoleCmd);
-            } else if (processedCmd.startsWith("bungee: ")) {
-                String bungeeCmd = processedCmd.substring(8).trim();
-
-                if (!BungeeMessageSender.isInitialized()) {
-                    logWarn("BungeeMessageSender no está inicializado. No se puede ejecutar comando bungee: " + bungeeCmd);
-                    return;
-                }
-
-                BungeeMessageSender.sendCommand(player, bungeeCmd);
-            }
-        }
+        CommandExecutor.builder(player)
+                .withPlaceholderPlayer(placeholderPlayer)
+                .withPlaceholderContext(placeholderContext)
+                .execute(commands);
     }
 
     /**
@@ -447,7 +419,7 @@ public class MenuItem {
             if (placeholderContext != null) {
                 processedName = CustomPlaceholderManager.process(processedName, placeholderContext);
             }
-            if (MenuManager.isPlaceholderAPIEnabled()) {
+            if (isPlaceholderAPIEnabled()) {
                 processedName = PlaceholderAPI.setPlaceholders(targetPlayer, processedName);
             }
             adapter.setDisplayName(meta, ColorUtils.parse(processedName));
@@ -460,7 +432,7 @@ public class MenuItem {
                 if (placeholderContext != null) {
                     processedLine = CustomPlaceholderManager.process(processedLine, placeholderContext);
                 }
-                if (MenuManager.isPlaceholderAPIEnabled()) {
+                if (isPlaceholderAPIEnabled()) {
                     processedLine = PlaceholderAPI.setPlaceholders(targetPlayer, processedLine);
                 }
                 loreComponents.add(ColorUtils.parse(processedLine));

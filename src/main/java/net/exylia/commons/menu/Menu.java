@@ -14,6 +14,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import static net.exylia.commons.ExyliaPlugin.isPlaceholderAPIEnabled;
+
 /**
  * Representa un menú interactivo
  */
@@ -216,7 +218,7 @@ public class Menu {
             processedTitle = CustomPlaceholderManager.process(processedTitle, titlePlaceholderContext);
         }
 
-        if (MenuManager.isPlaceholderAPIEnabled()) {
+        if (isPlaceholderAPIEnabled()) {
             processedTitle = PlaceholderAPI.setPlaceholders(player, processedTitle);
         }
 

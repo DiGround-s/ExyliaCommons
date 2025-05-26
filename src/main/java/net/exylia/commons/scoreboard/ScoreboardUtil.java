@@ -6,25 +6,17 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
+import static net.exylia.commons.ExyliaPlugin.isPlaceholderAPIEnabled;
+
 /**
  * Utility class for scoreboard operations.
  */
 public final class ScoreboardUtil {
 
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
-    private static final boolean PLACEHOLDER_API_ENABLED = Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null;
 
     private ScoreboardUtil() {
         // Private constructor to prevent instantiation
-    }
-
-    /**
-     * Checks if PlaceholderAPI is enabled.
-     *
-     * @return true if PlaceholderAPI is enabled
-     */
-    public static boolean isPlaceholderAPIEnabled() {
-        return PLACEHOLDER_API_ENABLED;
     }
 
     /**
@@ -35,7 +27,7 @@ public final class ScoreboardUtil {
      * @return The text with placeholders replaced
      */
     public static String setPlaceholders(Player player, String text) {
-        if (!PLACEHOLDER_API_ENABLED || text == null) return text;
+        if (!isPlaceholderAPIEnabled() || text == null) return text;
         return PlaceholderAPI.setPlaceholders(player, text);
     }
 
@@ -92,7 +84,7 @@ public final class ScoreboardUtil {
      * @return The processed component
      */
     public static Component processComponent(Player player, Component component) {
-        if (!PLACEHOLDER_API_ENABLED || component == null) return component;
+        if (!isPlaceholderAPIEnabled() || component == null) return component;
 
         // Convert to string, process placeholders, then convert back
         String raw = serializeComponent(component);

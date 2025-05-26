@@ -6,6 +6,7 @@ import net.exylia.commons.utils.AdapterFactory;
 import net.exylia.commons.utils.ColorUtils;
 import net.exylia.commons.utils.OldColorUtils;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
+import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashSet;
@@ -76,7 +77,9 @@ public abstract class ExyliaPlugin extends JavaPlugin {
     }
 
     private void checkOptionalDependencies() {
-        // Ejemplo
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            logInfo("PlaceholderAPI detectado. Soporte de placeholders activado en menús.");
+        }
 //        boolean vaultEnabled = Bukkit.getPluginManager().getPlugin("Vault") != null;
 //        if (vaultEnabled) {
 //            getLogger().info("Vault detectado. Soporte de economía activado.");
@@ -108,6 +111,10 @@ public abstract class ExyliaPlugin extends JavaPlugin {
 
     public static ExyliaPlugin getInstance() {
         return instance;
+    }
+
+    public static boolean isPlaceholderAPIEnabled() {
+        return Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null;
     }
 
     protected abstract void onExyliaEnable();

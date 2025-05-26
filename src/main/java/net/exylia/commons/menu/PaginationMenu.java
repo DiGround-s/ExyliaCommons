@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
+import static net.exylia.commons.ExyliaPlugin.isPlaceholderAPIEnabled;
+
 /**
  * Menú con sistema de paginación para mostrar muchos ítems
  */
@@ -339,7 +341,7 @@ public class PaginationMenu {
             title = CustomPlaceholderManager.process(title, placeholderContext);
         }
 
-        if (usePlaceholdersInTitle && MenuManager.isPlaceholderAPIEnabled()) {
+        if (usePlaceholdersInTitle && isPlaceholderAPIEnabled()) {
             title = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, title);
         }
 

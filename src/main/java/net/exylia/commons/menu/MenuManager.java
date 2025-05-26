@@ -28,7 +28,6 @@ public class MenuManager implements Listener {
     private static final Map<UUID, Menu> openMenus = new HashMap<>();
     private static final Map<UUID, PaginationMenu> openPaginationMenus = new HashMap<>();
     private static boolean initialized = false;
-    private static boolean placeholderAPIEnabled = false;
 
     /**
      * Inicializa el sistema de menús
@@ -39,13 +38,6 @@ public class MenuManager implements Listener {
         plugin = javaPlugin;
         Bukkit.getPluginManager().registerEvents(new MenuManager(), plugin);
         initialized = true;
-
-        // Comprobar si PlaceholderAPI está instalado
-        placeholderAPIEnabled = Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null;
-
-        if (placeholderAPIEnabled) {
-            logInfo("PlaceholderAPI detectado. Soporte de placeholders activado en menús.");
-        }
     }
 
     /**
@@ -101,13 +93,10 @@ public class MenuManager implements Listener {
         Menu menu = openMenus.get(player.getUniqueId());
         if (menu == null) return;
 
-        // Notificar al menú que fue cerrado para limpiar recursos
         menu.onClose(player);
 
-        // Si este menú era parte de un PaginationMenu, manejar la limpieza a través de él
         PaginationMenu paginationMenu = openPaginationMenus.get(player.getUniqueId());
         if (paginationMenu != null) {
-            // Limpiar recursos del menú paginado
             paginationMenu.cleanup(player);
             openPaginationMenus.remove(player.getUniqueId());
         }
@@ -118,7 +107,6 @@ public class MenuManager implements Listener {
             menu.getCloseHandler().accept(player);
         }
 
-        // Si hay un menú para regresar, ábrelo automáticamente
         if (menu.getReturnMenu() != null) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> menu.getReturnMenu().open(player), 1L);
         }
@@ -140,14 +128,6 @@ public class MenuManager implements Listener {
      */
     static void registerOpenPaginationMenu(Player player, PaginationMenu paginationMenu) {
         openPaginationMenus.put(player.getUniqueId(), paginationMenu);
-    }
-
-    /**
-     * Verifica si PlaceholderAPI está habilitado
-     * @return true si PlaceholderAPI está disponible
-     */
-    public static boolean isPlaceholderAPIEnabled() {
-        return placeholderAPIEnabled;
     }
 
     /**

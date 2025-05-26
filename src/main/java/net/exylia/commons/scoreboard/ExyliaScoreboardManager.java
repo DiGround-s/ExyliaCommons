@@ -30,7 +30,7 @@ public class ExyliaScoreboardManager {
         this.plugin = plugin;
         this.templates = new HashMap<>();
         this.playerScoreboards = new ConcurrentHashMap<>();
-        this.placeholderAPIEnabled = ScoreboardUtil.isPlaceholderAPIEnabled();
+        this.placeholderAPIEnabled = isPlaceholderAPIEnabled();
 
         if (placeholderAPIEnabled) {
             logInfo("PlaceholderAPI found, enabling placeholder support for scoreboards.");

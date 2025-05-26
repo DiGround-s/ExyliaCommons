@@ -3,6 +3,8 @@ package net.exylia.commons.scoreboard;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 
+import static net.exylia.commons.ExyliaPlugin.isPlaceholderAPIEnabled;
+
 /**
  * A content provider that always returns the same component.
  */
@@ -21,7 +23,7 @@ public class StaticContentProvider implements ContentProvider {
 
     @Override
     public Component getContent(Player player) {
-        if (ScoreboardUtil.isPlaceholderAPIEnabled()) {
+        if (isPlaceholderAPIEnabled()) {
             // Process potential placeholders even for static content
             String serialized = ScoreboardUtil.serializeComponent(content);
             String processed = ScoreboardUtil.setPlaceholders(player, serialized);
