@@ -23,6 +23,10 @@ dependencies {
     compileOnly 'mysql:mysql-connector-java:8.0.33'
     compileOnly 'com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT'
     compileOnly 'me.clip:placeholderapi:2.11.5'
+    compileOnly 'redis.clients:jedis:5.1.0'
+    compileOnly 'org.apache.commons:commons-pool2:2.12.0'
+    compileOnly 'org.slf4j:slf4j-api:2.0.9'
+    compileOnly 'org.slf4j:slf4j-simple:2.0.9'
 
     // Adventure como compileOnly en lugar de api
     compileOnly 'net.kyori:adventure-api:4.17.0'

@@ -2,6 +2,7 @@ package net.exylia.commons.command;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.*;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -14,7 +15,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static net.exylia.commons.utils.DebugUtils.logError;
-import static net.exylia.commons.utils.DebugUtils.logWarn;
 
 /**
  * Clase base para crear comandos de forma sencilla

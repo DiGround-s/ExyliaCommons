@@ -2,6 +2,7 @@ package net.exylia.commons;
 
 import net.exylia.commons.command.BungeeMessageSender;
 import net.exylia.commons.menu.MenuManager;
+import net.exylia.commons.redis.RedisIntegration;
 import net.exylia.commons.utils.AdapterFactory;
 import net.exylia.commons.utils.ColorUtils;
 import net.exylia.commons.utils.OldColorUtils;
@@ -32,7 +33,6 @@ public abstract class ExyliaPlugin extends JavaPlugin {
         }
 
         onExyliaEnable();
-
         logInfo("Plugin Exylia habilitado correctamente: " + getDescription().getName());
     }
 
@@ -71,8 +71,16 @@ public abstract class ExyliaPlugin extends JavaPlugin {
         AdapterFactory.initialize(this);
         BungeeMessageSender.initialize(this);
 
-        checkOptionalDependencies();
+        // Integración automática de Redis
+        if (getConfig().getBoolean("redis.auto-initialize", true)) {
+            try {
+                RedisIntegration.initializeRedis(this);
+            } catch (Exception e) {
+                logInfo("Redis no se pudo inicializar automáticamente (esto es normal si no está configurado): " + e.getMessage());
+            }
+        }
 
+        checkOptionalDependencies();
         logInfo("Núcleo Exylia inicializado correctamente");
     }
 
@@ -80,6 +88,15 @@ public abstract class ExyliaPlugin extends JavaPlugin {
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             logInfo("PlaceholderAPI detectado. Soporte de placeholders activado en menús.");
         }
+
+        // Verificar si Redis está disponible
+        try {
+            Class.forName("redis.clients.jedis.Jedis");
+            logInfo("Jedis detectado. Soporte de Redis disponible.");
+        } catch (ClassNotFoundException e) {
+            logInfo("Jedis no encontrado. Funciones de Redis no estarán disponibles.");
+        }
+
 //        boolean vaultEnabled = Bukkit.getPluginManager().getPlugin("Vault") != null;
 //        if (vaultEnabled) {
 //            getLogger().info("Vault detectado. Soporte de economía activado.");
@@ -88,6 +105,10 @@ public abstract class ExyliaPlugin extends JavaPlugin {
 
     private void shutdownExylia() {
         logInfo("Limpiando recursos globales de Exylia");
+
+        // Cerrar Redis si fue inicializado automáticamente
+        RedisIntegration.shutdownRedis();
+
         ColorUtils.shutdown();
         OldColorUtils.shutdown();
         AdapterFactory.close();
@@ -117,7 +138,17 @@ public abstract class ExyliaPlugin extends JavaPlugin {
         return Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null;
     }
 
-    protected abstract void onExyliaEnable();
+    /**
+     * Verifica si Redis está disponible y funcionando
+     */
+    public static boolean isRedisAvailable() {
+        try {
+            return net.exylia.commons.redis.RedisManager.isAvailable();
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
+    protected abstract void onExyliaEnable();
     protected abstract void onExyliaDisable();
 }
