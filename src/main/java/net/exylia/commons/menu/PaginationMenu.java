@@ -56,11 +56,11 @@ public class PaginationMenu {
         this.items = new ArrayList<>();
 
         // default
-        this.previousPageButton = new MenuItem(Material.ARROW)
+        this.previousPageButton = new MenuItem("ARROW")
                 .setName("&8« &7Página anterior")
                 .setAmount(1);
 
-        this.nextPageButton = new MenuItem(Material.ARROW)
+        this.nextPageButton = new MenuItem("ARROW")
                 .setName("&7Página siguiente &8»")
                 .setAmount(1);
 

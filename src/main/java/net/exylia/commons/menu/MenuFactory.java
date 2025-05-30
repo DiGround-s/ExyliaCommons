@@ -25,7 +25,7 @@ public class MenuFactory {
      * @param lore Descripción del ítem
      * @return Ítem creado
      */
-    public static MenuItem createItem(Material material, String name, String... lore) {
+    public static MenuItem createItem(String material, String name, String... lore) {
         return new MenuItem(material)
                 .setName(name)
                 .setLore(lore)
@@ -38,7 +38,7 @@ public class MenuFactory {
      * @param name Nombre del ítem
      * @return Ítem decorativo
      */
-    public static MenuItem createDecorative(Material material, String name) {
+    public static MenuItem createDecorative(String material, String name) {
         return createItem(material, name)
                 .hideAllAttributes();
     }
@@ -50,7 +50,7 @@ public class MenuFactory {
      * @param lore Descripción del ítem
      * @return Ítem brillante
      */
-    public static MenuItem createGlowingItem(Material material, String name, String... lore) {
+    public static MenuItem createGlowingItem(String material, String name, String... lore) {
         return createItem(material, name, lore)
                 .setGlowing(true);
     }
@@ -60,7 +60,7 @@ public class MenuFactory {
      * @param material Material del ítem
      * @return Ítem de relleno
      */
-    public static MenuItem createFiller(Material material) {
+    public static MenuItem createFiller(String material) {
         return new MenuItem(material)
                 .setName(" ")
                 .hideAllAttributes();
@@ -71,7 +71,7 @@ public class MenuFactory {
      * @return Ítem de relleno
      */
     public static MenuItem createGlassFiller() {
-        return createFiller(Material.BLACK_STAINED_GLASS_PANE);
+        return createFiller("BLACK_STAINED_GLASS_PANE");
     }
 
     /**
@@ -79,7 +79,7 @@ public class MenuFactory {
      * @return Ítem de confirmación
      */
     public static MenuItem createConfirmButton() {
-        return new MenuItem(Material.LIME_WOOL)
+        return new MenuItem("LIME_WOOL")
                 .setName("&a&lConfirmar")
                 .setLore("&7Haz clic para confirmar");
     }
@@ -89,7 +89,7 @@ public class MenuFactory {
      * @return Ítem de cancelación
      */
     public static MenuItem createCancelButton() {
-        return new MenuItem(Material.RED_WOOL)
+        return new MenuItem("RED_WOOL")
                 .setName("&c&lCancelar")
                 .setLore("&7Haz clic para cancelar");
     }
@@ -99,7 +99,7 @@ public class MenuFactory {
      * @return Ítem de retroceso
      */
     public static MenuItem createBackButton() {
-        return new MenuItem(Material.ARROW)
+        return new MenuItem("ARROW")
                 .setName("&8« &7Volver")
                 .setLore("&7Haz clic para volver al menú anterior");
     }
@@ -109,7 +109,7 @@ public class MenuFactory {
      * @return Ítem de cierre
      */
     public static MenuItem createCloseButton() {
-        return new MenuItem(Material.BARRIER)
+        return new MenuItem("BARRIER")
                 .setName("&c&lCerrar")
                 .setLore("&7Haz clic para cerrar el menú");
     }
@@ -171,7 +171,7 @@ public class MenuFactory {
      * @param lore Descripción del ítem (admite placeholders)
      * @return Ítem con soporte de placeholders
      */
-    public static MenuItem createPlaceholderItem(Material material, String name, String... lore) {
+    public static MenuItem createPlaceholderItem(String material, String name, String... lore) {
         return new MenuItem(material)
                 .setName(name)
                 .setLore(lore)
@@ -187,7 +187,7 @@ public class MenuFactory {
      * @param lore Descripción del ítem (admite placeholders)
      * @return Ítem dinámico
      */
-    public static MenuItem createDynamicItem(Material material, String name, long updateInterval, String... lore) {
+    public static MenuItem createDynamicItem(String material, String name, long updateInterval, String... lore) {
         return new MenuItem(material)
                 .setName(name)
                 .setLore(lore)
@@ -204,7 +204,7 @@ public class MenuFactory {
      * @param lore Descripción del ítem (admite placeholders)
      * @return Ítem contador
      */
-    public static MenuItem createCounter(Material material, String name, String... lore) {
+    public static MenuItem createCounter(String material, String name, String... lore) {
         // Un contador típico se actualiza cada segundo (20 ticks)
         return createDynamicItem(material, name, 20L, lore);
     }
@@ -217,7 +217,7 @@ public class MenuFactory {
      * @param lore Descripción del ítem
      * @return Ítem con comandos
      */
-    public static MenuItem createCommandItem(Material material, String name, List<String> commands, String... lore) {
+    public static MenuItem createCommandItem(String material, String name, List<String> commands, String... lore) {
         return new MenuItem(material)
                 .setName(name)
                 .setLore(lore)
@@ -232,7 +232,7 @@ public class MenuFactory {
      * @param commands Array de comandos a ejecutar
      * @return Ítem con comandos
      */
-    public static MenuItem createCommandItem(Material material, String name, String... commands) {
+    public static MenuItem createCommandItem(String material, String name, String... commands) {
         return new MenuItem(material)
                 .setName(name)
                 .hideAllAttributes()
@@ -247,7 +247,7 @@ public class MenuFactory {
      * @param lore Descripción del ítem (admite placeholders)
      * @return Ítem con comandos y placeholders
      */
-    public static MenuItem createPlaceholderCommandItem(Material material, String name, List<String> commands, String... lore) {
+    public static MenuItem createPlaceholderCommandItem(String material, String name, List<String> commands, String... lore) {
         return new MenuItem(material)
                 .setName(name)
                 .setLore(lore)

@@ -1,16 +1,17 @@
 package net.exylia.commons.menu;
 
-import net.exylia.commons.command.BungeeMessageSender;
 import net.exylia.commons.command.CommandExecutor;
 import net.exylia.commons.utils.AdapterFactory;
 import net.exylia.commons.utils.ColorUtils;
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.exylia.commons.utils.ItemMetaAdapter;
 import net.kyori.adventure.text.Component;
+import com.mojang.authlib.GameProfile;
+import com.mojang.authlib.properties.Property;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
@@ -20,20 +21,24 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 import static net.exylia.commons.ExyliaPlugin.isPlaceholderAPIEnabled;
 import static net.exylia.commons.utils.DebugUtils.logWarn;
+import static net.exylia.commons.utils.SkullUtils.*;
 
 /**
  * Representa un ítem interactivo en un menú
  */
 public class MenuItem {
-    private ItemStack itemStack;
+
+    private final ItemStack itemStack;
     private final ItemMetaAdapter adapter = AdapterFactory.getItemMetaAdapter();
     private Consumer<MenuClickInfo> clickHandler;
     private String menuItemId;
@@ -46,11 +51,16 @@ public class MenuItem {
     private List<String> commands = new ArrayList<>(); // Lista de comandos a ejecutar
 
     /**
-     * Constructor del ítem de menú
-     * @param material Material del ítem
+     * Constructor del ítem de menú usando String
+     * Soporta materiales normales y cabezas personalizadas:
+     * - Material normal: "ENDER_PEARL"
+     * - Cabeza base64: "headbase-eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUv..."
+     * - Cabeza de jugador: "playerhead-Notch"
+     * - Cabeza URL directa: "headurl-http://textures.minecraft.net/texture/dceb1708d5404ef326103e7b60559c9178f3dce729007ac9a0b498bdebe46107"
+     * @param materialString String que representa el material o tipo de cabeza
      */
-    public MenuItem(Material material) {
-        this.itemStack = new ItemStack(material);
+    public MenuItem(String materialString) {
+        this.itemStack = createItemFromString(materialString);
         this.menuItemId = UUID.randomUUID().toString();
     }
 
@@ -61,6 +71,41 @@ public class MenuItem {
     public MenuItem(ItemStack itemStack) {
         this.itemStack = itemStack.clone();
         this.menuItemId = UUID.randomUUID().toString();
+    }
+
+    /**
+     * Crea un ItemStack basado en un string
+     * @param materialString String que puede ser un material o cabeza personalizada
+     * @return ItemStack creado
+     */
+    private ItemStack createItemFromString(String materialString) {
+        if (materialString == null || materialString.isEmpty()) {
+            logWarn("Material string is null or empty, using STONE");
+            return new ItemStack(Material.STONE);
+        }
+
+        if (materialString.startsWith("headbase-")) {
+            String base64 = materialString.substring(9);
+            return createHeadFromBase64(base64);
+        }
+
+        if (materialString.startsWith("headurl-")) {
+            String url = materialString.substring(8);
+            return createHeadFromUrl(url);
+        }
+
+        if (materialString.startsWith("playerhead-")) {
+            String playerName = materialString.substring(11);
+            return createPlayerHead(playerName);
+        }
+
+        try {
+            Material material = Material.valueOf(materialString.toUpperCase());
+            return new ItemStack(material);
+        } catch (IllegalArgumentException e) {
+            logWarn("Invalid material: " + materialString + ", using STONE");
+            return new ItemStack(Material.STONE);
+        }
     }
 
     /**

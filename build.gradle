@@ -15,6 +15,10 @@ repositories {
         url = "https://oss.sonatype.org/content/groups/public/"
     }
     maven { url = 'https://repo.extendedclip.com/content/repositories/placeholderapi/' }
+    maven {
+        name = "minecraft-libraries"
+        url = uri("https://libraries.minecraft.net")
+    }
 }
 
 dependencies {
@@ -27,8 +31,7 @@ dependencies {
     compileOnly 'org.apache.commons:commons-pool2:2.12.0'
     compileOnly 'org.slf4j:slf4j-api:2.0.9'
     compileOnly 'org.slf4j:slf4j-simple:2.0.9'
-
-    // Adventure como compileOnly en lugar de api
+    compileOnly 'com.mojang:authlib:1.5.25'
     compileOnly 'net.kyori:adventure-api:4.17.0'
     compileOnly 'net.kyori:adventure-platform-bukkit:4.3.4'
     compileOnly 'net.kyori:adventure-text-minimessage:4.17.0'

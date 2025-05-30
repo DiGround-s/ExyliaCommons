@@ -138,8 +138,7 @@ public class MenuBuilder {
      * @return Ítem creado
      */
     private MenuItem buildMenuItem(ConfigurationSection itemSection, Player player) {
-        Material material = Material.valueOf(itemSection.getString("material", "STONE").toUpperCase());
-        MenuItem menuItem = new MenuItem(material);
+        MenuItem menuItem = new MenuItem(itemSection.getString("material", "STONE"));
 
         // Propiedades básicas
         if (itemSection.contains("name")) {
