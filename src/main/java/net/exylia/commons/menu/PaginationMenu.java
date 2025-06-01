@@ -1,9 +1,6 @@
 package net.exylia.commons.menu;
 
-import net.exylia.commons.utils.ColorUtils;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -358,7 +355,7 @@ public class PaginationMenu {
             if (prevButton.usesPlaceholders()) {
                 prevButton.updatePlaceholders(player);
             }
-            prevButton.setClickHandler(info -> open(info.getPlayer(), page - 1));
+            prevButton.setClickHandler(info -> open(info.player(), page - 1));
             menu.setItem(previousPageButtonSlot, prevButton);
         }
 
@@ -367,7 +364,7 @@ public class PaginationMenu {
             if (nextButton.usesPlaceholders()) {
                 nextButton.updatePlaceholders(player);
             }
-            nextButton.setClickHandler(info -> open(info.getPlayer(), page + 1));
+            nextButton.setClickHandler(info -> open(info.player(), page + 1));
             menu.setItem(nextPageButtonSlot, nextButton);
         }
 

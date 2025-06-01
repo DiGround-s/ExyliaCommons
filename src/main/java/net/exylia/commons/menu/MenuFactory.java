@@ -1,15 +1,9 @@
 package net.exylia.commons.menu;
 
-import org.bukkit.Material;
-import org.bukkit.enchantments.Enchantment;
-import org.bukkit.inventory.ItemFlag;
-import org.bukkit.plugin.java.JavaPlugin;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 /**
  * Fábrica para crear menús e ítems comunes rápidamente
@@ -145,7 +139,7 @@ public class MenuFactory {
         // Botón de confirmación
         MenuItem confirmButton = createConfirmButton();
         confirmButton.setClickHandler(info -> {
-            info.getPlayer().closeInventory();
+            info.player().closeInventory();
             onConfirm.run();
         });
         menu.setItem(11, confirmButton);
@@ -153,7 +147,7 @@ public class MenuFactory {
         // Botón de cancelación
         MenuItem cancelButton = createCancelButton();
         cancelButton.setClickHandler(info -> {
-            info.getPlayer().closeInventory();
+            info.player().closeInventory();
             onCancel.run();
         });
         menu.setItem(15, cancelButton);

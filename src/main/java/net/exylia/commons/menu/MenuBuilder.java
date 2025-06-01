@@ -137,8 +137,8 @@ public class MenuBuilder {
      * @param itemSection Sección de configuración del ítem
      * @return Ítem creado
      */
-    private MenuItem buildMenuItem(ConfigurationSection itemSection, Player player) {
-        MenuItem menuItem = new MenuItem(itemSection.getString("material", "STONE"));
+    public static MenuItem buildMenuItem(ConfigurationSection itemSection, Player player) {
+        MenuItem menuItem = new MenuItem(itemSection.getString("material", "STONE"), player);
 
         // Propiedades básicas
         if (itemSection.contains("name")) {

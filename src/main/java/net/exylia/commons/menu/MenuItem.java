@@ -6,12 +6,9 @@ import net.exylia.commons.utils.ColorUtils;
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.exylia.commons.utils.ItemMetaAdapter;
 import net.kyori.adventure.text.Component;
-import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.properties.Property;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
@@ -21,10 +18,8 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -44,11 +39,14 @@ public class MenuItem {
     private String menuItemId;
     private String rawName;
     private List<String> rawLore;
+    private String rawMaterialString; // Para guardar el material original con placeholders
+    private Player materialPlaceholderPlayer; // Jugador para procesar placeholders del material
     private boolean usePlaceholders = false;
     private boolean dynamicUpdate = false;
     private long updateInterval = 20L; // 1 segundo por defecto
     private Player placeholderPlayer = null; // Jugador específico para procesar los placeholders
     private List<String> commands = new ArrayList<>(); // Lista de comandos a ejecutar
+    private Object placeholderContext = null; // Objeto de contexto para placeholders personalizados
 
     /**
      * Constructor del ítem de menú usando String
@@ -60,7 +58,20 @@ public class MenuItem {
      * @param materialString String que representa el material o tipo de cabeza
      */
     public MenuItem(String materialString) {
+        this.rawMaterialString = materialString;
         this.itemStack = createItemFromString(materialString);
+        this.menuItemId = UUID.randomUUID().toString();
+    }
+
+    /**
+     * Constructor del ítem de menú usando String con jugador específico para placeholders
+     * @param materialString String que representa el material o tipo de cabeza (puede contener placeholders)
+     * @param player Jugador para procesar los placeholders del material
+     */
+    public MenuItem(String materialString, Player player) {
+        this.rawMaterialString = materialString;
+        this.materialPlaceholderPlayer = player;
+        this.itemStack = createItemFromString(processPlaceholdersInMaterial(materialString, player));
         this.menuItemId = UUID.randomUUID().toString();
     }
 
@@ -71,6 +82,32 @@ public class MenuItem {
     public MenuItem(ItemStack itemStack) {
         this.itemStack = itemStack.clone();
         this.menuItemId = UUID.randomUUID().toString();
+    }
+
+    /**
+     * Procesa los placeholders en el string del material
+     * @param materialString String del material con placeholders
+     * @param player Jugador para procesar los placeholders
+     * @return String del material con placeholders procesados
+     */
+    private String processPlaceholdersInMaterial(String materialString, Player player) {
+        if (materialString == null || player == null) {
+            return materialString;
+        }
+
+        String processed = materialString;
+
+        // Procesar placeholders personalizados si hay contexto
+        if (placeholderContext != null) {
+            processed = CustomPlaceholderManager.process(processed, placeholderContext);
+        }
+
+        // Procesar PlaceholderAPI si está disponible
+        if (isPlaceholderAPIEnabled()) {
+            processed = PlaceholderAPI.setPlaceholders(player, processed);
+        }
+
+        return processed;
     }
 
     /**
@@ -320,6 +357,8 @@ public class MenuItem {
         clone.clickHandler = this.clickHandler;
         clone.menuItemId = this.menuItemId;
         clone.rawName = this.rawName;
+        clone.rawMaterialString = this.rawMaterialString;
+        clone.materialPlaceholderPlayer = this.materialPlaceholderPlayer;
         if (this.rawLore != null) {
             clone.rawLore = new ArrayList<>(this.rawLore);
         }
@@ -328,6 +367,7 @@ public class MenuItem {
         clone.updateInterval = this.updateInterval;
         clone.placeholderPlayer = this.placeholderPlayer;
         clone.commands = new ArrayList<>(this.commands);
+        clone.placeholderContext = this.placeholderContext;
         return clone;
     }
 
@@ -387,9 +427,6 @@ public class MenuItem {
         return placeholderPlayer;
     }
 
-    // En MenuItem.java, añadir un campo para el objeto de contexto
-    private Object placeholderContext = null;
-
     /**
      * Establece un objeto de contexto para procesar placeholders personalizados
      * @param context Objeto de contexto (ej: Player target)
@@ -406,6 +443,16 @@ public class MenuItem {
      */
     public Object getPlaceholderContext() {
         return placeholderContext;
+    }
+
+    /**
+     * Establece un jugador específico para procesar placeholders del material
+     * @param player Jugador para procesar los placeholders del material
+     * @return El mismo ítem (para encadenamiento)
+     */
+    public MenuItem setMaterialPlaceholderPlayer(Player player) {
+        this.materialPlaceholderPlayer = player;
+        return this;
     }
 
     /**
@@ -448,6 +495,63 @@ public class MenuItem {
     }
 
     /**
+     * Actualiza el material del ítem procesando los placeholders
+     * @param player Jugador para procesar los placeholders
+     */
+    public void updateMaterial(Player player) {
+        if (rawMaterialString == null) return;
+
+        Player targetPlayer = (materialPlaceholderPlayer != null) ? materialPlaceholderPlayer : player;
+        String processedMaterial = processPlaceholdersInMaterial(rawMaterialString, targetPlayer);
+
+        // Crear nuevo ItemStack con el material actualizado
+        ItemStack newItemStack = createItemFromString(processedMaterial);
+
+        // Conservar la metadata actual
+        ItemMeta currentMeta = itemStack.getItemMeta();
+        ItemMeta newMeta = newItemStack.getItemMeta();
+
+        // Copiar propiedades importantes del meta actual al nuevo
+        if (currentMeta != null && newMeta != null) {
+            if (currentMeta.hasDisplayName()) {
+                adapter.setDisplayName(newMeta, adapter.getDisplayName(currentMeta));
+            }
+            if (currentMeta.hasLore()) {
+                adapter.setLore(newMeta, adapter.getLore(currentMeta));
+            }
+
+            // Copiar flags y enchantments
+            newMeta.addItemFlags(currentMeta.getItemFlags().toArray(new ItemFlag[0]));
+            currentMeta.getEnchants().forEach((enchant, level) -> {
+                newMeta.addEnchant(enchant, level, true);
+            });
+
+            // Copiar datos persistentes
+            currentMeta.getPersistentDataContainer().getKeys().forEach(key -> {
+                Object value = currentMeta.getPersistentDataContainer().get(key, PersistentDataType.STRING);
+                if (value != null) {
+                    newMeta.getPersistentDataContainer().set(key, PersistentDataType.STRING, (String) value);
+                }
+            });
+
+            newItemStack.setItemMeta(newMeta);
+        }
+
+        // Conservar la cantidad
+        newItemStack.setAmount(itemStack.getAmount());
+
+        // Reemplazar el ItemStack
+        this.itemStack.setType(newItemStack.getType());
+        this.itemStack.setItemMeta(newItemStack.getItemMeta());
+
+        // Si es una cabeza de jugador, aplicar la textura
+        if (newItemStack.getType() == Material.PLAYER_HEAD && newItemStack.getItemMeta() instanceof SkullMeta) {
+            SkullMeta skullMeta = (SkullMeta) newItemStack.getItemMeta();
+            this.itemStack.setItemMeta(skullMeta);
+        }
+    }
+
+    /**
      * Actualiza los placeholders del ítem para un jugador específico
      *
      * @param player Jugador para procesar los placeholders (si no hay un placeholderPlayer configurado)
@@ -486,6 +590,15 @@ public class MenuItem {
         }
 
         itemStack.setItemMeta(meta);
+    }
+
+    /**
+     * Actualiza tanto el material como los placeholders del ítem
+     * @param player Jugador para procesar los placeholders
+     */
+    public void updateAll(Player player) {
+        updateMaterial(player);
+        updatePlaceholders(player);
     }
 
     /**
