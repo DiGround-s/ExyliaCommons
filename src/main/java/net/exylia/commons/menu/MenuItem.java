@@ -348,10 +348,48 @@ public class MenuItem {
         return itemStack.clone();
     }
 
+    private String action = null;
+
     /**
-     * Clona el ítem
-     * @return Copia del ítem
+     * Establece una acción personalizada para ejecutar al hacer clic
+     * @param action String de acción (ej: "show_help", "open_shop gold", "teleport spawn")
+     * @return El mismo ítem (para encadenamiento)
      */
+    public MenuItem setAction(String action) {
+        this.action = action;
+        return this;
+    }
+
+    /**
+     * Obtiene la acción configurada
+     * @return String de acción o null si no hay configurada
+     */
+    public String getAction() {
+        return action;
+    }
+
+    /**
+     * Verifica si el ítem tiene una acción configurada
+     * @return true si tiene acción
+     */
+    public boolean hasAction() {
+        return action != null && !action.trim().isEmpty();
+    }
+
+    /**
+     * Ejecuta la acción configurada si existe
+     * @param clickInfo Información del clic
+     * @return true si se ejecutó una acción, false si no
+     */
+    public boolean executeAction(MenuClickInfo clickInfo) {
+        if (hasAction()) {
+            return MenuActionManager.executeAction(action, clickInfo);
+        }
+        return false;
+    }
+
+    // Actualizar el método clone() para incluir la acción
+    @Override
     public MenuItem clone() {
         MenuItem clone = new MenuItem(this.itemStack.clone());
         clone.clickHandler = this.clickHandler;
@@ -368,6 +406,7 @@ public class MenuItem {
         clone.placeholderPlayer = this.placeholderPlayer;
         clone.commands = new ArrayList<>(this.commands);
         clone.placeholderContext = this.placeholderContext;
+        clone.action = this.action; // Añadir esta línea
         return clone;
     }
 

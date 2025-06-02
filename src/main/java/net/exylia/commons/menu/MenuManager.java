@@ -44,11 +44,14 @@ public class MenuManager implements Listener {
      * Maneja los clics en inventarios
      * @param event Evento de clic en inventario
      */
+// Actualizar el método onInventoryClick en MenuManager:
+
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         Menu menu = openMenus.get(player.getUniqueId());
         if (menu == null) return;
+
         event.setCancelled(true);
         if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) {
             return;
@@ -56,17 +59,24 @@ public class MenuManager implements Listener {
 
         MenuItem item = menu.getItem(event.getSlot());
         if (item != null) {
-            // Ejecutar comandos si hay definidos
-            if (!item.getCommands().isEmpty()) {
-                // Cerrar el inventario antes de ejecutar comandos para evitar problemas
+            MenuClickInfo clickInfo = new MenuClickInfo(player, event.getClick(), event.getSlot(), menu, item);
+
+            // 1. Ejecutar acción personalizada si existe (prioridad alta)
+            boolean actionExecuted = false;
+            if (item.hasAction()) {
+                actionExecuted = item.executeAction(clickInfo);
+            }
+
+            // 2. Ejecutar comandos si hay definidos (solo si no se ejecutó una acción o si la acción falló)
+            if (!actionExecuted && !item.getCommands().isEmpty()) {
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     item.executeCommands(player);
                 });
             }
 
-            // Ejecutar el handler de clic si está definido
+            // 3. Ejecutar el handler de clic si está definido (siempre se ejecuta)
             if (item.getClickHandler() != null) {
-                item.getClickHandler().accept(new MenuClickInfo(player, event.getClick(), event.getSlot(), menu, item));
+                item.getClickHandler().accept(clickInfo);
             }
         }
     }

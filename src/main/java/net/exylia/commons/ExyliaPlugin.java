@@ -1,6 +1,7 @@
 package net.exylia.commons;
 
 import net.exylia.commons.command.BungeeMessageSender;
+import net.exylia.commons.menu.MenuActionManager;
 import net.exylia.commons.menu.MenuManager;
 import net.exylia.commons.redis.RedisIntegration;
 import net.exylia.commons.utils.AdapterFactory;
@@ -112,6 +113,7 @@ public abstract class ExyliaPlugin extends JavaPlugin {
         ColorUtils.shutdown();
         OldColorUtils.shutdown();
         AdapterFactory.close();
+        MenuActionManager.unregisterPluginActions(this);
     }
 
     /**

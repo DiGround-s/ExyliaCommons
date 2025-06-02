@@ -293,6 +293,11 @@ public class MenuBuilder {
             }
         }
 
+        // custom action
+        if (itemSection.contains("action")) {
+            menuItem.setAction(itemSection.getString("action"));
+        }
+
         // Comandos
         if (itemSection.contains("commands")) {
             List<String> commands = itemSection.getStringList("commands");

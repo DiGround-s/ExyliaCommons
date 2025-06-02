@@ -249,4 +249,57 @@ public class MenuFactory {
                 .usePlaceholders(true)
                 .setCommands(commands);
     }
+
+    /**
+     * Crea un ítem con una acción personalizada
+     * @param material Material del ítem
+     * @param name Nombre del ítem
+     * @param action Acción a ejecutar (ej: "show_help", "open_shop gold")
+     * @param lore Descripción del ítem
+     * @return Ítem con acción
+     */
+    public static MenuItem createActionItem(String material, String name, String action, String... lore) {
+        return new MenuItem(material)
+                .setName(name)
+                .setLore(lore)
+                .hideAllAttributes()
+                .setAction(action);
+    }
+
+    /**
+     * Crea un ítem con acción y placeholders
+     * @param material Material del ítem
+     * @param name Nombre del ítem (admite placeholders)
+     * @param action Acción a ejecutar
+     * @param lore Descripción del ítem (admite placeholders)
+     * @return Ítem con acción y placeholders
+     */
+    public static MenuItem createPlaceholderActionItem(String material, String name, String action, String... lore) {
+        return new MenuItem(material)
+                .setName(name)
+                .setLore(lore)
+                .hideAllAttributes()
+                .usePlaceholders(true)
+                .setAction(action);
+    }
+
+    /**
+     * Crea un ítem dinámico con acción
+     * @param material Material del ítem
+     * @param name Nombre del ítem (admite placeholders)
+     * @param action Acción a ejecutar
+     * @param updateInterval Intervalo de actualización en ticks
+     * @param lore Descripción del ítem (admite placeholders)
+     * @return Ítem dinámico con acción
+     */
+    public static MenuItem createDynamicActionItem(String material, String name, String action, long updateInterval, String... lore) {
+        return new MenuItem(material)
+                .setName(name)
+                .setLore(lore)
+                .hideAllAttributes()
+                .usePlaceholders(true)
+                .setDynamicUpdate(true)
+                .setUpdateInterval(updateInterval)
+                .setAction(action);
+    }
 }
