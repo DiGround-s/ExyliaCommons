@@ -6,7 +6,7 @@ import org.bukkit.event.inventory.ClickType;
 /**
  * Información sobre un clic en un ítem de menú
  */
-public record MenuClickInfo(Player player, ClickType clickType, int slot, Menu menu) {
+public record MenuClickInfo(Player player, ClickType clickType, int slot, Menu menu, MenuItem item) {
     /**
      * Constructor de la información de clic
      *
@@ -56,6 +56,11 @@ public record MenuClickInfo(Player player, ClickType clickType, int slot, Menu m
     @Override
     public Menu menu() {
         return menu;
+    }
+
+    @Override
+    public MenuItem item() {
+        return item;
     }
 
     /**

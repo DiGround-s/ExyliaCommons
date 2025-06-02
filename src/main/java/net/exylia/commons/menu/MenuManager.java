@@ -66,7 +66,7 @@ public class MenuManager implements Listener {
 
             // Ejecutar el handler de clic si está definido
             if (item.getClickHandler() != null) {
-                item.getClickHandler().accept(new MenuClickInfo(player, event.getClick(), event.getSlot(), menu));
+                item.getClickHandler().accept(new MenuClickInfo(player, event.getClick(), event.getSlot(), menu, item));
             }
         }
     }
