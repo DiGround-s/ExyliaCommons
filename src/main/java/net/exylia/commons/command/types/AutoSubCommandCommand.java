@@ -95,7 +95,7 @@ public abstract class AutoSubCommandCommand extends PermissionCommand {
         }
 
         String[] subArgs = Arrays.copyOfRange(args, 1, args.length);
-        return executeSubCommand(sender, label, subCommand, subArgs);
+        return executeSubCommand(sender, subCommand, label, subArgs);
     }
 
     @Override
@@ -139,7 +139,7 @@ public abstract class AutoSubCommandCommand extends PermissionCommand {
 
         // Mostrar uso del comando principal si existe
         if (mainCommandInfo != null && !mainCommandInfo.usage().isEmpty()) {
-            sender.sendMessage(ColorUtils.parse("<#8fffc1>/" + label + " <#a1ffc3>" + mainCommandInfo.usage()));
+            sender.sendMessage(ColorUtils.parse("<#8fffc1>/" + label + " <#a1ffc3>"));
             sender.sendMessage("");
         }
 
@@ -162,8 +162,9 @@ public abstract class AutoSubCommandCommand extends PermissionCommand {
 
         // subcomandos
         for (SubCommandInfo info : availableCommands) {
-            sender.sendMessage("<#8fffc1>/" + label + " <#a1ffc3>" + info.usage());
+            sender.sendMessage(ColorUtils.parse("<#8fffc1>/" + label + " <#a1ffc3>" + info.usage()));
         }
+        sender.sendMessage("");
     }
 
     // Métodos abstractos que deben implementar las subclases

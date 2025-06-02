@@ -180,6 +180,573 @@ public class MessageUtils {
         return CompletableFuture.runAsync(() -> sendMessage(players, component));
     }
 
+
+    // ============== MÉTODOS DE EXCLUSIÓN MEJORADOS PARA MENSAJES ==============
+
+    /**
+     * Envía un mensaje a una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param message Mensaje con códigos de color (&)
+     */
+    public static void sendMessageToCollectionExcluding(Collection<Player> recipients, Collection<Player> excludePlayers, String message) {
+        Component component = ColorUtils.parse(message);
+        for (Player player : recipients) {
+            if (!excludePlayers.contains(player)) {
+                sendMessage(player, component);
+            }
+        }
+    }
+
+    /**
+     * Envía un mensaje a una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param message Mensaje con códigos de color (&)
+     */
+    public static void sendMessageToCollectionExcluding(Collection<Player> recipients, Player excludePlayer, String message) {
+        Component component = ColorUtils.parse(message);
+        for (Player player : recipients) {
+            if (!player.equals(excludePlayer)) {
+                sendMessage(player, component);
+            }
+        }
+    }
+
+    /**
+     * Envía un mensaje a una colección de jugadores excluyendo jugadores específicos (con Component)
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param component Componente a enviar
+     */
+    public static void sendMessageToCollectionExcluding(Collection<Player> recipients, Collection<Player> excludePlayers, Component component) {
+        for (Player player : recipients) {
+            if (!excludePlayers.contains(player)) {
+                sendMessage(player, component);
+            }
+        }
+    }
+
+    /**
+     * Envía un mensaje a una colección de jugadores excluyendo un jugador específico (con Component)
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param component Componente a enviar
+     */
+    public static void sendMessageToCollectionExcluding(Collection<Player> recipients, Player excludePlayer, Component component) {
+        for (Player player : recipients) {
+            if (!player.equals(excludePlayer)) {
+                sendMessage(player, component);
+            }
+        }
+    }
+
+// ============== MÉTODOS ASÍNCRONOS DE EXCLUSIÓN PARA MENSAJES ==============
+
+    /**
+     * Envía un mensaje asíncronamente a una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param message Mensaje con códigos de color (&)
+     * @return CompletableFuture que completa cuando el mensaje ha sido enviado
+     */
+    public static CompletableFuture<Void> sendMessageToCollectionExcludingAsync(Collection<Player> recipients, Collection<Player> excludePlayers, String message) {
+        return CompletableFuture.runAsync(() -> sendMessageToCollectionExcluding(recipients, excludePlayers, message));
+    }
+
+    /**
+     * Envía un mensaje asíncronamente a una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param message Mensaje con códigos de color (&)
+     * @return CompletableFuture que completa cuando el mensaje ha sido enviado
+     */
+    public static CompletableFuture<Void> sendMessageToCollectionExcludingAsync(Collection<Player> recipients, Player excludePlayer, String message) {
+        return CompletableFuture.runAsync(() -> sendMessageToCollectionExcluding(recipients, excludePlayer, message));
+    }
+
+    /**
+     * Envía un mensaje asíncronamente a una colección de jugadores excluyendo jugadores específicos (con Component)
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param component Componente a enviar
+     * @return CompletableFuture que completa cuando el mensaje ha sido enviado
+     */
+    public static CompletableFuture<Void> sendMessageToCollectionExcludingAsync(Collection<Player> recipients, Collection<Player> excludePlayers, Component component) {
+        return CompletableFuture.runAsync(() -> sendMessageToCollectionExcluding(recipients, excludePlayers, component));
+    }
+
+    /**
+     * Envía un mensaje asíncronamente a una colección de jugadores excluyendo un jugador específico (con Component)
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param component Componente a enviar
+     * @return CompletableFuture que completa cuando el mensaje ha sido enviado
+     */
+    public static CompletableFuture<Void> sendMessageToCollectionExcludingAsync(Collection<Player> recipients, Player excludePlayer, Component component) {
+        return CompletableFuture.runAsync(() -> sendMessageToCollectionExcluding(recipients, excludePlayer, component));
+    }
+
+// ============== MÉTODOS DE EXCLUSIÓN PARA TÍTULOS ==============
+
+    /**
+     * Envía un título a una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param title Título principal con códigos de color (&)
+     * @param subtitle Subtítulo con códigos de color (&)
+     * @param fadeIn Tiempo de aparición (ticks)
+     * @param stay Tiempo de visualización (ticks)
+     * @param fadeOut Tiempo de desaparición (ticks)
+     */
+    public static void sendTitleToCollectionExcluding(Collection<Player> recipients, Collection<Player> excludePlayers, String title, String subtitle, int fadeIn, int stay, int fadeOut) {
+        Component titleComponent = ColorUtils.parse(title);
+        Component subtitleComponent = ColorUtils.parse(subtitle);
+        for (Player player : recipients) {
+            if (!excludePlayers.contains(player)) {
+                sendTitle(player, titleComponent, subtitleComponent, fadeIn, stay, fadeOut);
+            }
+        }
+    }
+
+    /**
+     * Envía un título a una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param title Título principal con códigos de color (&)
+     * @param subtitle Subtítulo con códigos de color (&)
+     * @param fadeIn Tiempo de aparición (ticks)
+     * @param stay Tiempo de visualización (ticks)
+     * @param fadeOut Tiempo de desaparición (ticks)
+     */
+    public static void sendTitleToCollectionExcluding(Collection<Player> recipients, Player excludePlayer, String title, String subtitle, int fadeIn, int stay, int fadeOut) {
+        Component titleComponent = ColorUtils.parse(title);
+        Component subtitleComponent = ColorUtils.parse(subtitle);
+        for (Player player : recipients) {
+            if (!player.equals(excludePlayer)) {
+                sendTitle(player, titleComponent, subtitleComponent, fadeIn, stay, fadeOut);
+            }
+        }
+    }
+
+    /**
+     * Envía un título a una colección de jugadores excluyendo jugadores específicos (con Component)
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param title Título principal
+     * @param subtitle Subtítulo
+     * @param fadeIn Tiempo de aparición (ticks)
+     * @param stay Tiempo de visualización (ticks)
+     * @param fadeOut Tiempo de desaparición (ticks)
+     */
+    public static void sendTitleToCollectionExcluding(Collection<Player> recipients, Collection<Player> excludePlayers, Component title, Component subtitle, int fadeIn, int stay, int fadeOut) {
+        for (Player player : recipients) {
+            if (!excludePlayers.contains(player)) {
+                sendTitle(player, title, subtitle, fadeIn, stay, fadeOut);
+            }
+        }
+    }
+
+    /**
+     * Envía un título a una colección de jugadores excluyendo un jugador específico (con Component)
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param title Título principal
+     * @param subtitle Subtítulo
+     * @param fadeIn Tiempo de aparición (ticks)
+     * @param stay Tiempo de visualización (ticks)
+     * @param fadeOut Tiempo de desaparición (ticks)
+     */
+    public static void sendTitleToCollectionExcluding(Collection<Player> recipients, Player excludePlayer, Component title, Component subtitle, int fadeIn, int stay, int fadeOut) {
+        for (Player player : recipients) {
+            if (!player.equals(excludePlayer)) {
+                sendTitle(player, title, subtitle, fadeIn, stay, fadeOut);
+            }
+        }
+    }
+
+// ============== MÉTODOS ASÍNCRONOS DE EXCLUSIÓN PARA TÍTULOS ==============
+
+    /**
+     * Envía un título asíncronamente a una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param title Título principal con códigos de color (&)
+     * @param subtitle Subtítulo con códigos de color (&)
+     * @param fadeIn Tiempo de aparición (ticks)
+     * @param stay Tiempo de visualización (ticks)
+     * @param fadeOut Tiempo de desaparición (ticks)
+     * @return CompletableFuture que completa cuando el título ha sido enviado
+     */
+    public static CompletableFuture<Void> sendTitleToCollectionExcludingAsync(Collection<Player> recipients, Collection<Player> excludePlayers, String title, String subtitle, int fadeIn, int stay, int fadeOut) {
+        return CompletableFuture.runAsync(() -> sendTitleToCollectionExcluding(recipients, excludePlayers, title, subtitle, fadeIn, stay, fadeOut));
+    }
+
+    /**
+     * Envía un título asíncronamente a una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param title Título principal con códigos de color (&)
+     * @param subtitle Subtítulo con códigos de color (&)
+     * @param fadeIn Tiempo de aparición (ticks)
+     * @param stay Tiempo de visualización (ticks)
+     * @param fadeOut Tiempo de desaparición (ticks)
+     * @return CompletableFuture que completa cuando el título ha sido enviado
+     */
+    public static CompletableFuture<Void> sendTitleToCollectionExcludingAsync(Collection<Player> recipients, Player excludePlayer, String title, String subtitle, int fadeIn, int stay, int fadeOut) {
+        return CompletableFuture.runAsync(() -> sendTitleToCollectionExcluding(recipients, excludePlayer, title, subtitle, fadeIn, stay, fadeOut));
+    }
+
+    /**
+     * Envía un título asíncronamente a una colección de jugadores excluyendo jugadores específicos (con Component)
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param title Título principal
+     * @param subtitle Subtítulo
+     * @param fadeIn Tiempo de aparición (ticks)
+     * @param stay Tiempo de visualización (ticks)
+     * @param fadeOut Tiempo de desaparición (ticks)
+     * @return CompletableFuture que completa cuando el título ha sido enviado
+     */
+    public static CompletableFuture<Void> sendTitleToCollectionExcludingAsync(Collection<Player> recipients, Collection<Player> excludePlayers, Component title, Component subtitle, int fadeIn, int stay, int fadeOut) {
+        return CompletableFuture.runAsync(() -> sendTitleToCollectionExcluding(recipients, excludePlayers, title, subtitle, fadeIn, stay, fadeOut));
+    }
+
+    /**
+     * Envía un título asíncronamente a una colección de jugadores excluyendo un jugador específico (con Component)
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param title Título principal
+     * @param subtitle Subtítulo
+     * @param fadeIn Tiempo de aparición (ticks)
+     * @param stay Tiempo de visualización (ticks)
+     * @param fadeOut Tiempo de desaparición (ticks)
+     * @return CompletableFuture que completa cuando el título ha sido enviado
+     */
+    public static CompletableFuture<Void> sendTitleToCollectionExcludingAsync(Collection<Player> recipients, Player excludePlayer, Component title, Component subtitle, int fadeIn, int stay, int fadeOut) {
+        return CompletableFuture.runAsync(() -> sendTitleToCollectionExcluding(recipients, excludePlayer, title, subtitle, fadeIn, stay, fadeOut));
+    }
+
+// ============== MÉTODOS DE EXCLUSIÓN PARA ACTION BAR ==============
+
+    /**
+     * Envía un mensaje de acción a una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param message Mensaje con códigos de color (&)
+     */
+    public static void sendActionBarToCollectionExcluding(Collection<Player> recipients, Collection<Player> excludePlayers, String message) {
+        Component component = ColorUtils.parse(message);
+        for (Player player : recipients) {
+            if (!excludePlayers.contains(player)) {
+                sendActionBar(player, component);
+            }
+        }
+    }
+
+    /**
+     * Envía un mensaje de acción a una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param message Mensaje con códigos de color (&)
+     */
+    public static void sendActionBarToCollectionExcluding(Collection<Player> recipients, Player excludePlayer, String message) {
+        Component component = ColorUtils.parse(message);
+        for (Player player : recipients) {
+            if (!player.equals(excludePlayer)) {
+                sendActionBar(player, component);
+            }
+        }
+    }
+
+    /**
+     * Envía un mensaje de acción a una colección de jugadores excluyendo jugadores específicos (con Component)
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param component Componente a enviar
+     */
+    public static void sendActionBarToCollectionExcluding(Collection<Player> recipients, Collection<Player> excludePlayers, Component component) {
+        for (Player player : recipients) {
+            if (!excludePlayers.contains(player)) {
+                sendActionBar(player, component);
+            }
+        }
+    }
+
+    /**
+     * Envía un mensaje de acción a una colección de jugadores excluyendo un jugador específico (con Component)
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param component Componente a enviar
+     */
+    public static void sendActionBarToCollectionExcluding(Collection<Player> recipients, Player excludePlayer, Component component) {
+        for (Player player : recipients) {
+            if (!player.equals(excludePlayer)) {
+                sendActionBar(player, component);
+            }
+        }
+    }
+
+// ============== MÉTODOS ASÍNCRONOS DE EXCLUSIÓN PARA ACTION BAR ==============
+
+    /**
+     * Envía un mensaje de acción asíncronamente a una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param message Mensaje con códigos de color (&)
+     * @return CompletableFuture que completa cuando el mensaje ha sido enviado
+     */
+    public static CompletableFuture<Void> sendActionBarToCollectionExcludingAsync(Collection<Player> recipients, Collection<Player> excludePlayers, String message) {
+        return CompletableFuture.runAsync(() -> sendActionBarToCollectionExcluding(recipients, excludePlayers, message));
+    }
+
+    /**
+     * Envía un mensaje de acción asíncronamente a una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param message Mensaje con códigos de color (&)
+     * @return CompletableFuture que completa cuando el mensaje ha sido enviado
+     */
+    public static CompletableFuture<Void> sendActionBarToCollectionExcludingAsync(Collection<Player> recipients, Player excludePlayer, String message) {
+        return CompletableFuture.runAsync(() -> sendActionBarToCollectionExcluding(recipients, excludePlayer, message));
+    }
+
+    /**
+     * Envía un mensaje de acción asíncronamente a una colección de jugadores excluyendo jugadores específicos (con Component)
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param component Componente a enviar
+     * @return CompletableFuture que completa cuando el mensaje ha sido enviado
+     */
+    public static CompletableFuture<Void> sendActionBarToCollectionExcludingAsync(Collection<Player> recipients, Collection<Player> excludePlayers, Component component) {
+        return CompletableFuture.runAsync(() -> sendActionBarToCollectionExcluding(recipients, excludePlayers, component));
+    }
+
+    /**
+     * Envía un mensaje de acción asíncronamente a una colección de jugadores excluyendo un jugador específico (con Component)
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param component Componente a enviar
+     * @return CompletableFuture que completa cuando el mensaje ha sido enviado
+     */
+    public static CompletableFuture<Void> sendActionBarToCollectionExcludingAsync(Collection<Player> recipients, Player excludePlayer, Component component) {
+        return CompletableFuture.runAsync(() -> sendActionBarToCollectionExcluding(recipients, excludePlayer, component));
+    }
+
+// ============== MÉTODOS DE EXCLUSIÓN PARA BOSS BAR ==============
+
+    /**
+     * Muestra una barra de jefe a una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param bossBar Barra de jefe a mostrar
+     */
+    public static void showBossBarToCollectionExcluding(Collection<Player> recipients, Collection<Player> excludePlayers, BossBar bossBar) {
+        for (Player player : recipients) {
+            if (!excludePlayers.contains(player)) {
+                showPlayerBossBar(player, bossBar);
+            }
+        }
+    }
+
+    /**
+     * Muestra una barra de jefe a una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param bossBar Barra de jefe a mostrar
+     */
+    public static void showBossBarToCollectionExcluding(Collection<Player> recipients, Player excludePlayer, BossBar bossBar) {
+        for (Player player : recipients) {
+            if (!player.equals(excludePlayer)) {
+                showPlayerBossBar(player, bossBar);
+            }
+        }
+    }
+
+    /**
+     * Oculta una barra de jefe para una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param bossBar Barra de jefe a ocultar
+     */
+    public static void hideBossBarToCollectionExcluding(Collection<Player> recipients, Collection<Player> excludePlayers, BossBar bossBar) {
+        for (Player player : recipients) {
+            if (!excludePlayers.contains(player)) {
+                hidePlayerBossBar(player, bossBar);
+            }
+        }
+    }
+
+    /**
+     * Oculta una barra de jefe para una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param bossBar Barra de jefe a ocultar
+     */
+    public static void hideBossBarToCollectionExcluding(Collection<Player> recipients, Player excludePlayer, BossBar bossBar) {
+        for (Player player : recipients) {
+            if (!player.equals(excludePlayer)) {
+                hidePlayerBossBar(player, bossBar);
+            }
+        }
+    }
+
+// ============== MÉTODOS ASÍNCRONOS DE EXCLUSIÓN PARA BOSS BAR ==============
+
+    /**
+     * Muestra una barra de jefe asíncronamente a una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param bossBar Barra de jefe a mostrar
+     * @return CompletableFuture que completa cuando la barra ha sido mostrada
+     */
+    public static CompletableFuture<Void> showBossBarToCollectionExcludingAsync(Collection<Player> recipients, Collection<Player> excludePlayers, BossBar bossBar) {
+        return CompletableFuture.runAsync(() -> showBossBarToCollectionExcluding(recipients, excludePlayers, bossBar));
+    }
+
+    /**
+     * Muestra una barra de jefe asíncronamente a una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param bossBar Barra de jefe a mostrar
+     * @return CompletableFuture que completa cuando la barra ha sido mostrada
+     */
+    public static CompletableFuture<Void> showBossBarToCollectionExcludingAsync(Collection<Player> recipients, Player excludePlayer, BossBar bossBar) {
+        return CompletableFuture.runAsync(() -> showBossBarToCollectionExcluding(recipients, excludePlayer, bossBar));
+    }
+
+    /**
+     * Oculta una barra de jefe asíncronamente para una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param bossBar Barra de jefe a ocultar
+     * @return CompletableFuture que completa cuando la barra ha sido ocultada
+     */
+    public static CompletableFuture<Void> hideBossBarToCollectionExcludingAsync(Collection<Player> recipients, Collection<Player> excludePlayers, BossBar bossBar) {
+        return CompletableFuture.runAsync(() -> hideBossBarToCollectionExcluding(recipients, excludePlayers, bossBar));
+    }
+
+    /**
+     * Oculta una barra de jefe asíncronamente para una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param bossBar Barra de jefe a ocultar
+     * @return CompletableFuture que completa cuando la barra ha sido ocultada
+     */
+    public static CompletableFuture<Void> hideBossBarToCollectionExcludingAsync(Collection<Player> recipients, Player excludePlayer, BossBar bossBar) {
+        return CompletableFuture.runAsync(() -> hideBossBarToCollectionExcluding(recipients, excludePlayer, bossBar));
+    }
+
+// ============== MÉTODOS DE EXCLUSIÓN PARA SONIDOS ==============
+
+    /**
+     * Reproduce un sonido a una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param sound Sonido a reproducir
+     * @param volume Volumen del sonido
+     * @param pitch Tono del sonido
+     */
+    public static void playSoundToCollectionExcluding(Collection<Player> recipients, Collection<Player> excludePlayers, Sound sound, float volume, float pitch) {
+        for (Player player : recipients) {
+            if (!excludePlayers.contains(player)) {
+                playSound(player, sound, volume, pitch);
+            }
+        }
+    }
+
+    /**
+     * Reproduce un sonido a una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param sound Sonido a reproducir
+     * @param volume Volumen del sonido
+     * @param pitch Tono del sonido
+     */
+    public static void playSoundToCollectionExcluding(Collection<Player> recipients, Player excludePlayer, Sound sound, float volume, float pitch) {
+        for (Player player : recipients) {
+            if (!player.equals(excludePlayer)) {
+                playSound(player, sound, volume, pitch);
+            }
+        }
+    }
+
+    /**
+     * Reproduce un sonido asíncronamente a una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param sound Sonido a reproducir
+     * @param volume Volumen del sonido
+     * @param pitch Tono del sonido
+     * @return CompletableFuture que completa cuando el sonido ha sido reproducido
+     */
+    public static CompletableFuture<Void> playSoundToCollectionExcludingAsync(Collection<Player> recipients, Collection<Player> excludePlayers, Sound sound, float volume, float pitch) {
+        return CompletableFuture.runAsync(() -> playSoundToCollectionExcluding(recipients, excludePlayers, sound, volume, pitch));
+    }
+
+    /**
+     * Reproduce un sonido asíncronamente a una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param sound Sonido a reproducir
+     * @param volume Volumen del sonido
+     * @param pitch Tono del sonido
+     * @return CompletableFuture que completa cuando el sonido ha sido reproducido
+     */
+    public static CompletableFuture<Void> playSoundToCollectionExcludingAsync(Collection<Player> recipients, Player excludePlayer, Sound sound, float volume, float pitch) {
+        return CompletableFuture.runAsync(() -> playSoundToCollectionExcluding(recipients, excludePlayer, sound, volume, pitch));
+    }
+
+// ============== MÉTODOS DE EXCLUSIÓN PARA MENSAJES CON SONIDO ==============
+
+    /**
+     * Envía un mensaje con sonido a una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param message Mensaje con códigos de color (&)
+     * @param sound Sonido a reproducir
+     * @param volume Volumen del sonido
+     * @param pitch Tono del sonido
+     */
+    public static void sendMessageWithSoundToCollectionExcluding(Collection<Player> recipients, Collection<Player> excludePlayers, String message, Sound sound, float volume, float pitch) {
+        for (Player player : recipients) {
+            if (!excludePlayers.contains(player)) {
+                sendMessageWithSound(player, message, sound, volume, pitch);
+            }
+        }
+    }
+
+    /**
+     * Envía un mensaje con sonido a una colección de jugadores excluyendo un jugador específico
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayer Jugador a excluir del envío
+     * @param message Mensaje con códigos de color (&)
+     * @param sound Sonido a reproducir
+     * @param volume Volumen del sonido
+     * @param pitch Tono del sonido
+     */
+    public static void sendMessageWithSoundToCollectionExcluding(Collection<Player> recipients, Player excludePlayer, String message, Sound sound, float volume, float pitch) {
+        for (Player player : recipients) {
+            if (!player.equals(excludePlayer)) {
+                sendMessageWithSound(player, message, sound, volume, pitch);
+            }
+        }
+    }
+
+    /**
+     * Envía un mensaje con sonido asíncronamente a una colección de jugadores excluyendo jugadores específicos
+     * @param recipients Colección de jugadores destinatarios
+     * @param excludePlayers Jugadores a excluir del envío
+     * @param message Mensaje con códigos de color (&)
+     * @param sound Sonido a reproducir
+     * @param volume Volumen del sonido
+     * @param pitch Tono del sonido
+     * @return CompletableFuture que completa cuando el mensaje ha sido enviado
+     */
+    public static CompletableFuture<Void> sendMessageWithSoundToCollectionExcludingAsync(Collection<Player> recipients, Collection<Player> excludePlayers, String message, Sound sound, float volume, float pitch) {
+        return CompletableFuture.runAsync(() -> sendMessageWithSoundToCollectionExcluding(recipients, excludePlayers, message, sound, volume, pitch));
+    }
+
     /**
      * Envía un título al jugador
      * @param player Jugador destinatario

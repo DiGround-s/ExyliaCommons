@@ -23,28 +23,105 @@ public class MenuBuilder {
 
     /**
      * Crea un menú a partir de la configuración
+     * @param menuConfig Configuración del menú (FileConfiguration)
+     * @param player Jugador para el que se crea el menú
      * @return Menú creado o null si no existe la configuración
      */
     public Menu buildMenu(FileConfiguration menuConfig, Player player) {
+        return buildMenuFromSection(menuConfig, player);
+    }
 
+    /**
+     * Crea un menú a partir de una sección de configuración
+     * @param menuSection Sección de configuración del menú
+     * @param player Jugador para el que se crea el menú
+     * @return Menú creado o null si no existe la configuración
+     */
+    public Menu buildMenu(ConfigurationSection menuSection, Player player) {
+        return buildMenuFromSection(menuSection, player);
+    }
+
+    /**
+     * Crea un menú a partir de la configuración con soporte para placeholders personalizados
+     * @param menuConfig Configuración del menú (FileConfiguration)
+     * @param player Jugador para el que se crea el menú
+     * @param placeholderContext Objeto de contexto para placeholders personalizados
+     * @return Menú creado o null si no existe la configuración
+     */
+    public Menu buildMenu(FileConfiguration menuConfig, Player player, Object placeholderContext) {
+        return buildMenuFromSection(menuConfig, player, placeholderContext);
+    }
+
+    /**
+     * Crea un menú a partir de una sección de configuración con soporte para placeholders personalizados
+     * @param menuSection Sección de configuración del menú
+     * @param player Jugador para el que se crea el menú
+     * @param placeholderContext Objeto de contexto para placeholders personalizados
+     * @return Menú creado o null si no existe la configuración
+     */
+    public Menu buildMenu(ConfigurationSection menuSection, Player player, Object placeholderContext) {
+        return buildMenuFromSection(menuSection, player, placeholderContext);
+    }
+
+    /**
+     * Crea un menú paginado a partir de la configuración
+     * @param menuConfig Configuración del menú (FileConfiguration)
+     * @param player Jugador para el que se crea el menú
+     * @param itemSlots Posiciones donde colocar los ítems paginados
+     * @return Menú paginado creado o null si no existe la configuración
+     */
+    public PaginationMenu buildPaginationMenu(FileConfiguration menuConfig, Player player, int... itemSlots) {
+        return buildPaginationMenuFromSection(menuConfig, player, itemSlots);
+    }
+
+    /**
+     * Crea un menú paginado a partir de una sección de configuración
+     * @param menuSection Sección de configuración del menú
+     * @param player Jugador para el que se crea el menú
+     * @param itemSlots Posiciones donde colocar los ítems paginados
+     * @return Menú paginado creado o null si no existe la configuración
+     */
+    public PaginationMenu buildPaginationMenu(ConfigurationSection menuSection, Player player, int... itemSlots) {
+        return buildPaginationMenuFromSection(menuSection, player, itemSlots);
+    }
+
+    /**
+     * Implementación interna para crear un menú desde cualquier tipo de configuración
+     */
+    private Menu buildMenuFromSection(ConfigurationSection menuSection, Player player) {
+        return buildMenuFromSection(menuSection, player, null);
+    }
+
+    /**
+     * Implementación interna para crear un menú desde cualquier tipo de configuración con placeholders
+     */
+    private Menu buildMenuFromSection(ConfigurationSection menuSection, Player player, Object placeholderContext) {
         // Propiedades básicas del menú
-        String title = menuConfig.getString("title", "Menu");
-        int rows = menuConfig.getInt("rows", 3);
+        String title = menuSection.getString("title", "Menu");
+        int rows = menuSection.getInt("rows", 3);
         Menu menu = new Menu(title, rows);
 
         // Configuración de actualizaciones dinámicas del menú
-        if (menuConfig.getBoolean("dynamic_updates", false)) {
-            long updateInterval = menuConfig.getLong("update_interval", 20L);
+        if (menuSection.getBoolean("dynamic_updates", false)) {
+            long updateInterval = menuSection.getLong("update_interval", 20L);
             menu.enableDynamicUpdates(plugin, updateInterval);
         }
 
+        // Configurar placeholders en el título si está especificado en la configuración
+        if (placeholderContext != null && menuSection.getBoolean("use_placeholders_in_title", false)) {
+            menu.usePlaceholdersInTitle(true);
+            menu.setTitlePlaceholderContext(placeholderContext);
+        }
+
         // Cargar ítems
-        ConfigurationSection itemsSection = menuConfig.getConfigurationSection("items");
+        ConfigurationSection itemsSection = menuSection.getConfigurationSection("items");
         if (itemsSection != null) {
             for (String itemKey : itemsSection.getKeys(false)) {
                 ConfigurationSection itemSection = itemsSection.getConfigurationSection(itemKey);
                 if (itemSection != null) {
-                    MenuItem menuItem = buildMenuItem(itemSection, player);
+                    MenuItem menuItem = placeholderContext != null
+                            ? buildMenuItem(itemSection, player, placeholderContext)
+                            : buildMenuItem(itemSection, player);
 
                     // Obtener los slots para este ítem
                     List<Integer> slots = getItemSlots(itemSection, rows);
@@ -60,6 +137,44 @@ public class MenuBuilder {
         }
 
         return menu;
+    }
+
+    /**
+     * Implementación interna para crear un menú paginado desde cualquier tipo de configuración
+     */
+    private PaginationMenu buildPaginationMenuFromSection(ConfigurationSection menuSection, Player player, int... itemSlots) {
+        String title = menuSection.getString("title", "Menu");
+        int rows = menuSection.getInt("rows", 6);
+
+        PaginationMenu paginationMenu = new PaginationMenu(title, rows, itemSlots);
+
+        ConfigurationSection prevSection = menuSection.getConfigurationSection("prev_button");
+        if (prevSection != null) {
+            MenuItem prevButton = buildMenuItem(prevSection, player);
+
+            List<Integer> prevSlots = getItemSlots(prevSection, rows);
+            int prevSlot = prevSlots.isEmpty() ? (rows * 9 - 9) : prevSlots.get(0);
+
+            paginationMenu.setPreviousPageButton(prevButton, prevSlot);
+        }
+
+        ConfigurationSection nextSection = menuSection.getConfigurationSection("next_button");
+        if (nextSection != null) {
+            MenuItem nextButton = buildMenuItem(nextSection, player);
+
+            List<Integer> nextSlots = getItemSlots(nextSection, rows);
+            int nextSlot = nextSlots.isEmpty() ? (rows * 9 - 1) : nextSlots.get(0);
+
+            paginationMenu.setNextPageButton(nextButton, nextSlot);
+        }
+
+        ConfigurationSection fillerSection = menuSection.getConfigurationSection("filler");
+        if (fillerSection != null) {
+            MenuItem fillerItem = buildMenuItem(fillerSection, player);
+            paginationMenu.setFillerItem(fillerItem);
+        }
+
+        return paginationMenu;
     }
 
     /**
@@ -135,6 +250,7 @@ public class MenuBuilder {
     /**
      * Crea un ítem a partir de la configuración
      * @param itemSection Sección de configuración del ítem
+     * @param player Jugador para el que se crea el ítem
      * @return Ítem creado
      */
     public static MenuItem buildMenuItem(ConfigurationSection itemSection, Player player) {
@@ -189,63 +305,12 @@ public class MenuBuilder {
     }
 
     /**
-     * Crea un menú paginado a partir de la configuración
-     * @param itemSlots Posiciones donde colocar los ítems paginados
-     * @return Menú paginado creado o null si no existe la configuración
-     */
-    public PaginationMenu buildPaginationMenu(FileConfiguration menuConfig, Player player, int... itemSlots) {
-        String title = menuConfig.getString("title", "Menu");
-        int rows = menuConfig.getInt("rows", 6);
-
-        PaginationMenu paginationMenu = new PaginationMenu(title, rows, itemSlots);
-
-        ConfigurationSection prevSection = menuConfig.getConfigurationSection("prev_button");
-        if (prevSection != null) {
-            MenuItem prevButton = buildMenuItem(prevSection, player);
-
-            List<Integer> prevSlots = getItemSlots(prevSection, rows);
-            int prevSlot = prevSlots.isEmpty() ? (rows * 9 - 9) : prevSlots.get(0);
-
-            paginationMenu.setPreviousPageButton(prevButton, prevSlot);
-        }
-
-        ConfigurationSection nextSection = menuConfig.getConfigurationSection("next_button");
-        if (nextSection != null) {
-            MenuItem nextButton = buildMenuItem(nextSection, player);
-
-            List<Integer> nextSlots = getItemSlots(nextSection, rows);
-            int nextSlot = nextSlots.isEmpty() ? (rows * 9 - 1) : nextSlots.get(0);
-
-            paginationMenu.setNextPageButton(nextButton, nextSlot);
-        }
-
-        ConfigurationSection fillerSection = menuConfig.getConfigurationSection("filler");
-        if (fillerSection != null) {
-            MenuItem fillerItem = buildMenuItem(fillerSection, player);
-            paginationMenu.setFillerItem(fillerItem);
-        }
-
-        return paginationMenu;
-    }
-
-    /**
-     * Crea un menú a partir de la configuración con soporte para placeholders personalizados
-     * @param menuConfig Configuración del menú
+     * Crea un ítem a partir de la configuración con contexto de placeholders
+     * @param itemSection Sección de configuración del ítem
+     * @param player Jugador para el que se crea el ítem
      * @param placeholderContext Objeto de contexto para placeholders personalizados
-     * @return Menú creado o null si no existe la configuración
+     * @return Ítem creado
      */
-    public Menu buildMenu(FileConfiguration menuConfig, Player player, Object placeholderContext) {
-        Menu menu = buildMenu(menuConfig, player);
-
-        // Configurar placeholders en el título si está especificado en la configuración
-        if (menuConfig.getBoolean("use_placeholders_in_title", false)) {
-            menu.usePlaceholdersInTitle(true);
-            menu.setTitlePlaceholderContext(placeholderContext);
-        }
-
-        return menu;
-    }
-
     private MenuItem buildMenuItem(ConfigurationSection itemSection, Player player, Object placeholderContext) {
         MenuItem menuItem = buildMenuItem(itemSection, player);
 

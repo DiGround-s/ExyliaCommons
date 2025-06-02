@@ -20,22 +20,22 @@ import static net.exylia.commons.ExyliaPlugin.isPlaceholderAPIEnabled;
  * Representa un menú interactivo
  */
 public class Menu {
-    private Component title;
-    private final int size;
-    private final Map<Integer, MenuItem> items;
+    Component title;
+    final int size;
+    final Map<Integer, MenuItem> items;
     private Inventory inventory;
     private Consumer<Player> closeHandler;
     private Menu returnMenu;
-    private boolean dynamicUpdates = false;
-    private JavaPlugin plugin;
-    private long updateInterval = 20L; // 1 segundo por defecto
+    boolean dynamicUpdates = false;
+    JavaPlugin plugin;
+    long updateInterval = 20L; // 1 segundo por defecto
     private int taskId = -1;
     private Player viewer;
     private Map<Integer, Long> itemUpdateTimes = new HashMap<>();
     private Map<Integer, Integer> itemTaskIds = new HashMap<>();
-    private String rawTitle;
-    private boolean usePlaceholdersInTitle = false;
-    private Object titlePlaceholderContext = null;
+    String rawTitle;
+    boolean usePlaceholdersInTitle = false;
+    Object titlePlaceholderContext = null;
     private final InventoryAdapter inventoryAdapter = AdapterFactory.getInventoryAdapter();
 
     /**
