@@ -1,6 +1,7 @@
 package net.exylia.commons;
 
 import net.exylia.commons.command.BungeeMessageSender;
+import net.exylia.commons.item.ItemManager;
 import net.exylia.commons.menu.MenuActionManager;
 import net.exylia.commons.menu.MenuManager;
 import net.exylia.commons.redis.RedisIntegration;
@@ -69,6 +70,7 @@ public abstract class ExyliaPlugin extends JavaPlugin {
 
     private void initializeExylia() {
         MenuManager.initialize(this);
+        ItemManager.initialize(this);
         AdapterFactory.initialize(this);
         BungeeMessageSender.initialize(this);
 

@@ -1,24 +1,15 @@
 package net.exylia.commons.menu;
 
-import net.exylia.commons.utils.ColorUtils;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
-import java.util.function.Consumer;
-
-import static net.exylia.commons.utils.DebugUtils.logInfo;
 
 /**
  * Sistema de gestión de menús interactivos para plugins de Exylia
@@ -44,8 +35,6 @@ public class MenuManager implements Listener {
      * Maneja los clics en inventarios
      * @param event Evento de clic en inventario
      */
-// Actualizar el método onInventoryClick en MenuManager:
-
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -61,7 +50,7 @@ public class MenuManager implements Listener {
         if (item != null) {
             MenuClickInfo clickInfo = new MenuClickInfo(player, event.getClick(), event.getSlot(), menu, item);
 
-            // 1. Ejecutar acción personalizada si existe (prioridad alta)
+            // 1. Ejecutar acción personalizada si existe usando el sistema global (prioridad alta)
             boolean actionExecuted = false;
             if (item.hasAction()) {
                 actionExecuted = item.executeAction(clickInfo);

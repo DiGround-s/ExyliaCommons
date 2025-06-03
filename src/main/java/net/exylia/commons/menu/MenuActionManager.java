@@ -6,7 +6,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
-import java.util.logging.Level;
 
 import static net.exylia.commons.utils.DebugUtils.logWarn;
 

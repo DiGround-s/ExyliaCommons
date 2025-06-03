@@ -383,12 +383,11 @@ public class MenuItem {
      */
     public boolean executeAction(MenuClickInfo clickInfo) {
         if (hasAction()) {
-            return MenuActionManager.executeAction(action, clickInfo);
+            return MenuActionAdapter.executeMenuAction(action, clickInfo);
         }
         return false;
     }
 
-    // Actualizar el método clone() para incluir la acción
     @Override
     public MenuItem clone() {
         MenuItem clone = new MenuItem(this.itemStack.clone());
