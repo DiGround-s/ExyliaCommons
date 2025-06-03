@@ -1,7 +1,6 @@
 package net.exylia.commons.item;
 
 import net.exylia.commons.actions.ActionContext;
-import net.exylia.commons.actions.ActionSource;
 import net.exylia.commons.actions.GlobalActionManager;
 import net.exylia.commons.command.CommandExecutor;
 import net.exylia.commons.menu.CustomPlaceholderManager;
@@ -17,7 +16,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -32,94 +30,415 @@ import static net.exylia.commons.utils.DebugUtils.logWarn;
 import static net.exylia.commons.utils.SkullUtils.*;
 
 /**
- * Representa un ítem interactivo que puede ejecutar acciones
+ * InteractiveItem con enfoque híbrido:
+ * - En NBT: Solo ID del item, usos actuales y datos críticos de persistencia
+ * - En memoria: Configuración, comandos, acciones (desde config/registro)
  */
 public class InteractiveItem {
 
+    // SOLO estos datos van en NBT (datos que DEBEN persistir)
+    private static final String NBT_ITEM_ID = "interactive_item_id";
+    private static final String NBT_CURRENT_USES = "current_uses";
+    private static final String NBT_UNIQUE_ID = "unique_id"; // Para items no-stackeable
+    private static final String NBT_CREATION_TIME = "creation_time"; // Para tracking
+
+    // Datos en memoria (se obtienen del registro/config)
     private final ItemStack itemStack;
     private final ItemMetaAdapter adapter = AdapterFactory.getItemMetaAdapter();
+
+    // Configuración dinámica (NO se persiste en NBT)
+    private String configId; // ID para buscar en configuración
+    private ItemConfiguration config; // Configuración cargada desde memoria
+
+    // Datos temporales (NO se persisten)
     private Consumer<ItemClickInfo> clickHandler;
-    private String itemId;
-    private String rawName;
-    private List<String> rawLore;
-    private String rawMaterialString;
-    private Player materialPlaceholderPlayer;
-    private boolean usePlaceholders = false;
-    private Player placeholderPlayer = null;
-    private List<String> commands = new ArrayList<>();
-    private Object placeholderContext = null;
-    private String action = null;
-    private boolean consumeOnUse = false;
-    private boolean cancelEvent = true;
-    private int maxUses = -1; // -1 = usos infinitos
-    private int currentUses = -1; // -1 = usos infinitos
-    private boolean stackable = true;
-    private String usesDisplayFormat = "§7Usos: §f%current%§7/§f%max%";
-    private boolean showUsesInLore = true;
-    private boolean showUsesInName = false;
+    private Player placeholderPlayer;
+    private Object placeholderContext;
 
     /**
-     * Constructor del ítem interactivo usando String
-     * @param materialString String que representa el material o tipo de cabeza
+     * Constructor para crear desde configuración
      */
-    public InteractiveItem(String materialString) {
-        this.rawMaterialString = materialString;
-        this.itemStack = createItemFromString(materialString);
-        this.itemId = UUID.randomUUID().toString();
+    public InteractiveItem(String configId, ItemConfiguration config) {
+        this.configId = configId;
+        this.config = config;
+        this.itemStack = createItemFromConfig(config);
+        setItemId(configId);
+        setCreationTime(System.currentTimeMillis());
+
+        // ARREGLO: Inicializar usos correctamente al crear
+        initializeUses();
+
+        // Aplicar cantidad si está especificada
+        if (config.getAmount() > 1) {
+            this.itemStack.setAmount(config.getAmount());
+        }
     }
 
     /**
-     * Constructor del ítem interactivo usando String con jugador específico para placeholders
-     * @param materialString String que representa el material o tipo de cabeza (puede contener placeholders)
-     * @param player Jugador para procesar los placeholders del material
+     * Constructor para crear desde config con placeholders
      */
-    public InteractiveItem(String materialString, Player player) {
-        this.rawMaterialString = materialString;
-        this.materialPlaceholderPlayer = player;
-        this.itemStack = createItemFromString(processPlaceholdersInMaterial(materialString, player));
-        this.itemId = UUID.randomUUID().toString();
+    public InteractiveItem(String configId, ItemConfiguration config, Player player) {
+        this.configId = configId;
+        this.config = config;
+        this.placeholderPlayer = player;
+        this.itemStack = createItemFromConfig(config, player);
+        setItemId(configId);
+        setCreationTime(System.currentTimeMillis());
+
+        // ARREGLO: Inicializar usos correctamente al crear
+        initializeUses();
+
+        // Aplicar cantidad si está especificada
+        if (config.getAmount() > 1) {
+            this.itemStack.setAmount(config.getAmount());
+        }
     }
 
     /**
-     * Constructor del ítem interactivo
-     * @param itemStack ItemStack para usar directamente
+     * Constructor para reconstruir desde ItemStack existente
      */
-    public InteractiveItem(ItemStack itemStack) {
+    private InteractiveItem(ItemStack itemStack, String configId, ItemConfiguration config) {
         this.itemStack = itemStack.clone();
-        this.itemId = UUID.randomUUID().toString();
+        this.configId = configId;
+        this.config = config;
     }
 
     /**
-     * Procesa los placeholders en el string del material
-     * @param materialString String del material con placeholders
-     * @param player Jugador para procesar los placeholders
-     * @return String del material con placeholders procesados
+     * Crea un InteractiveItem desde un ItemStack existente
+     * Busca la configuración en memoria usando el ID
      */
-    private String processPlaceholdersInMaterial(String materialString, Player player) {
-        if (materialString == null || player == null) {
-            return materialString;
+    public static InteractiveItem fromItemStack(ItemStack itemStack) {
+        String itemId = getItemIdFromStack(itemStack);
+        if (itemId == null) return null;
+
+        // Buscar configuración en el registro de items
+        ItemConfiguration config = ItemManager.getItemConfiguration(itemId);
+        if (config == null) {
+            logWarn("No se encontró configuración para item ID: " + itemId);
+            return null;
         }
 
-        String processed = materialString;
-
-        // Procesar placeholders personalizados si hay contexto
-        if (placeholderContext != null) {
-            processed = CustomPlaceholderManager.process(processed, placeholderContext);
-        }
-
-        // Procesar PlaceholderAPI si está disponible
-        if (isPlaceholderAPIEnabled()) {
-            processed = PlaceholderAPI.setPlaceholders(player, processed);
-        }
-
-        return processed;
+        return new InteractiveItem(itemStack, itemId, config);
     }
 
     /**
-     * Crea un ItemStack basado en un string
-     * @param materialString String que puede ser un material o cabeza personalizada
-     * @return ItemStack creado
+     * Obtiene el ID del item desde el NBT del ItemStack
      */
+    private static String getItemIdFromStack(ItemStack itemStack) {
+        if (itemStack == null || !itemStack.hasItemMeta()) return null;
+
+        ItemMeta meta = itemStack.getItemMeta();
+        if (meta == null) return null;
+
+        NamespacedKey key = new NamespacedKey(ItemManager.getPlugin(), NBT_ITEM_ID);
+        return meta.getPersistentDataContainer().get(key, PersistentDataType.STRING);
+    }
+
+    // ===== GETTERS QUE USAN CONFIGURACIÓN EN MEMORIA =====
+
+    public String getId() {
+        return configId;
+    }
+
+    public String getRawName() {
+        return config.getName();
+    }
+
+    public List<String> getRawLore() {
+        return config.getLore();
+    }
+
+    public String getRawMaterialString() {
+        return config.getMaterial();
+    }
+
+    public boolean usesPlaceholders() {
+        return config.usesPlaceholders();
+    }
+
+    public List<String> getCommands() {
+        return config.getCommands();
+    }
+
+    public String getAction() {
+        return config.getAction();
+    }
+
+    public boolean shouldConsumeOnUse() {
+        return config.shouldConsumeOnUse();
+    }
+
+    public boolean shouldCancelEvent() {
+        return config.shouldCancelEvent();
+    }
+
+    public int getMaxUses() {
+        return config.getMaxUses();
+    }
+
+    public boolean isStackable() {
+        return config.isStackable();
+    }
+
+    public String getUsesDisplayFormat() {
+        return config.getUsesDisplayFormat();
+    }
+
+    public boolean shouldShowUsesInLore() {
+        return config.shouldShowUsesInLore();
+    }
+
+    public boolean shouldShowUsesInName() {
+        return config.shouldShowUsesInName();
+    }
+
+    // ===== MÉTODOS DE INICIALIZACIÓN =====
+
+    /**
+     * Inicializa correctamente los usos del item
+     */
+    private void initializeUses() {
+        int maxUses = getMaxUses();
+        if (maxUses > 0) {
+            // Solo establecer usos actuales si no están ya establecidos
+            if (!hasNBTValue(NBT_CURRENT_USES)) {
+                setCurrentUses(maxUses);
+            }
+            // Actualizar display después de establecer usos
+            updateUsesDisplay();
+        }
+    }
+
+    /**
+     * Verifica si existe un valor NBT específico
+     */
+    private boolean hasNBTValue(String key) {
+        ItemMeta meta = itemStack.getItemMeta();
+        if (meta == null) return false;
+        NamespacedKey namespacedKey = new NamespacedKey(getPlugin(), key);
+        return meta.getPersistentDataContainer().has(namespacedKey, PersistentDataType.INTEGER);
+    }
+
+    public int getCurrentUses() {
+        return getNBTInt(NBT_CURRENT_USES, getMaxUses());
+    }
+
+    public InteractiveItem setCurrentUses(int uses) {
+        setNBTInt(NBT_CURRENT_USES, uses);
+        updateUsesDisplay();
+        return this;
+    }
+
+    private void setItemId(String id) {
+        setNBTString(NBT_ITEM_ID, id);
+    }
+
+    private void setCreationTime(long time) {
+        ItemMeta meta = itemStack.getItemMeta();
+        if (meta == null) return;
+        NamespacedKey key = new NamespacedKey(getPlugin(), NBT_CREATION_TIME);
+        meta.getPersistentDataContainer().set(key, PersistentDataType.LONG, time);
+        itemStack.setItemMeta(meta);
+    }
+
+    public long getCreationTime() {
+        ItemMeta meta = itemStack.getItemMeta();
+        if (meta == null) return 0;
+        NamespacedKey key = new NamespacedKey(getPlugin(), NBT_CREATION_TIME);
+        return meta.getPersistentDataContainer().getOrDefault(key, PersistentDataType.LONG, 0L);
+    }
+
+    // ===== MÉTODOS NBT HELPERS =====
+
+    private int getNBTInt(String key, int defaultValue) {
+        ItemMeta meta = itemStack.getItemMeta();
+        if (meta == null) return defaultValue;
+        NamespacedKey namespacedKey = new NamespacedKey(getPlugin(), key);
+        return meta.getPersistentDataContainer().getOrDefault(namespacedKey, PersistentDataType.INTEGER, defaultValue);
+    }
+
+    private void setNBTInt(String key, int value) {
+        ItemMeta meta = itemStack.getItemMeta();
+        if (meta == null) return;
+        NamespacedKey namespacedKey = new NamespacedKey(getPlugin(), key);
+        meta.getPersistentDataContainer().set(namespacedKey, PersistentDataType.INTEGER, value);
+        itemStack.setItemMeta(meta);
+    }
+
+    private void setNBTString(String key, String value) {
+        ItemMeta meta = itemStack.getItemMeta();
+        if (meta == null) return;
+        NamespacedKey namespacedKey = new NamespacedKey(getPlugin(), key);
+        if (value != null) {
+            meta.getPersistentDataContainer().set(namespacedKey, PersistentDataType.STRING, value);
+        } else {
+            meta.getPersistentDataContainer().remove(namespacedKey);
+        }
+        itemStack.setItemMeta(meta);
+    }
+
+    // ===== MÉTODOS DE CONFIGURACIÓN TEMPORAL (NO PERSISTENTES) =====
+
+    public InteractiveItem setClickHandler(Consumer<ItemClickInfo> clickHandler) {
+        this.clickHandler = clickHandler;
+        return this;
+    }
+
+    public InteractiveItem setPlaceholderPlayer(Player player) {
+        this.placeholderPlayer = player;
+        return this;
+    }
+
+    public InteractiveItem setPlaceholderContext(Object context) {
+        this.placeholderContext = context;
+        return this;
+    }
+
+    public Consumer<ItemClickInfo> getClickHandler() {
+        return clickHandler;
+    }
+
+    // ===== MÉTODOS PARA MANTENER COMPATIBILIDAD =====
+
+    /**
+     * Actualiza la cantidad del ItemStack
+     * @param amount Nueva cantidad
+     * @return Este item para encadenamiento
+     */
+    public InteractiveItem setAmount(int amount) {
+        itemStack.setAmount(Math.max(1, Math.min(64, amount)));
+        return this;
+    }
+
+    /**
+     * Establece si el item debe brillar
+     * @param glowing true para brillar
+     * @return Este item para encadenamiento
+     */
+    public InteractiveItem setGlowing(boolean glowing) {
+        setGlowing(itemStack, glowing);
+        return this;
+    }
+
+    /**
+     * Oculta todos los atributos del item
+     * @return Este item para encadenamiento
+     */
+    public InteractiveItem hideAllAttributes() {
+        hideAllAttributes(itemStack);
+        return this;
+    }
+
+    // ===== MÉTODOS DE NEGOCIO =====
+
+    public boolean hasAction() {
+        String action = getAction();
+        return action != null && !action.trim().isEmpty();
+    }
+
+    public boolean hasLimitedUses() {
+        return getMaxUses() > 0;
+    }
+
+    public boolean hasUsesRemaining() {
+        return getMaxUses() == -1 || getCurrentUses() > 0;
+    }
+
+    public boolean consumeUse() {
+        int maxUses = getMaxUses();
+        if (maxUses == -1) return true; // Usos infinitos
+
+        int currentUses = getCurrentUses();
+        if (currentUses > 0) {
+            int newUses = currentUses - 1;
+            setCurrentUses(newUses);
+            return newUses > 0; // ARREGLO: Retorna false cuando llega a 0 usos
+        }
+        return false; // Ya no tiene usos
+    }
+
+    public boolean executeAction(ItemClickInfo clickInfo) {
+        if (hasAction()) {
+            ActionContext context = new ActionContext(clickInfo.player(), clickInfo.source())
+                    .withData("clickType", clickInfo.clickType())
+                    .withData("slot", clickInfo.slot())
+                    .withData("item", this)
+                    .withData("itemStack", clickInfo.itemStack());
+            return GlobalActionManager.executeAction(getAction(), context);
+        }
+        return false;
+    }
+
+    public void executeCommands(Player player) {
+        CommandExecutor.builder(player)
+                .withPlaceholderPlayer(placeholderPlayer)
+                .withPlaceholderContext(placeholderContext)
+                .execute(getCommands());
+    }
+
+    // ===== CREACIÓN Y ACTUALIZACIÓN DE VISUAL =====
+
+    private ItemStack createItemFromConfig(ItemConfiguration config) {
+        return createItemFromConfig(config, null);
+    }
+
+    private ItemStack createItemFromConfig(ItemConfiguration config, Player player) {
+        String materialString = config.getMaterial();
+
+        // Procesar placeholders en material si hay jugador
+        if (player != null && containsPlaceholders(materialString)) {
+            materialString = processPlaceholders(materialString, player);
+        }
+
+        ItemStack item = createItemFromString(materialString);
+
+        // Aplicar propiedades básicas
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            // Nombre
+            if (config.getName() != null) {
+                String name = config.getName();
+                if (player != null && config.usesPlaceholders()) {
+                    name = processPlaceholders(name, player);
+                }
+                adapter.setDisplayName(meta, ColorUtils.parse(name));
+            }
+
+            // Lore
+            if (!config.getLore().isEmpty()) {
+                List<Component> loreComponents = new ArrayList<>();
+                for (String line : config.getLore()) {
+                    String processedLine = line;
+                    if (player != null && config.usesPlaceholders()) {
+                        processedLine = processPlaceholders(line, player);
+                    }
+                    loreComponents.add(ColorUtils.parse(processedLine));
+                }
+                adapter.setLore(meta, loreComponents);
+            }
+
+            item.setItemMeta(meta);
+        }
+
+        // Aplicar propiedades adicionales
+        if (config.isGlowing()) {
+            setGlowing(item, true);
+        }
+
+        if (config.shouldHideAttributes()) {
+            hideAllAttributes(item);
+        }
+
+        // Hacer único si no es stackeable
+        if (!config.isStackable()) {
+            makeUnique(item);
+        }
+
+        // ARREGLO: No llamar updateUsesDisplay aquí ya que se llama en initializeUses()
+
+        return item;
+    }
+
     private ItemStack createItemFromString(String materialString) {
         if (materialString == null || materialString.isEmpty()) {
             logWarn("Material string is null or empty, using STONE");
@@ -150,83 +469,139 @@ public class InteractiveItem {
         }
     }
 
-    /**
-     * Establece el nombre del ítem
-     * @param name Nombre (admite códigos de color y placeholders)
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setName(String name) {
-        this.rawName = name;
+    private void updateUsesDisplay() {
+        if (!hasLimitedUses()) return;
+
+        String usesText = getUsesDisplayFormat()
+                .replace("%current%", String.valueOf(getCurrentUses()))
+                .replace("%max%", String.valueOf(getMaxUses()));
+
         ItemMeta meta = itemStack.getItemMeta();
-        adapter.setDisplayName(meta, ColorUtils.parse(name));
-        itemStack.setItemMeta(meta);
-        return this;
-    }
+        if (meta == null) return;
 
-    /**
-     * Establece la descripción del ítem
-     * @param lore Líneas de descripción (admiten códigos de color y placeholders)
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setLore(String... lore) {
-        this.rawLore = Arrays.asList(lore);
-
-        List<Component> loreComponents = new ArrayList<>();
-        for (String line : lore) {
-            loreComponents.add(ColorUtils.parse(line));
+        // Actualizar nombre si está habilitado
+        if (shouldShowUsesInName()) {
+            String rawName = getRawName();
+            if (rawName != null) {
+                String displayName = rawName.contains("%uses%")
+                        ? rawName.replace("%uses%", usesText)
+                        : rawName + " " + usesText;
+                adapter.setDisplayName(meta, ColorUtils.parse(displayName));
+            }
         }
 
-        ItemMeta meta = itemStack.getItemMeta();
-        adapter.setLore(meta, loreComponents);
-        itemStack.setItemMeta(meta);
-        return this;
-    }
+        // Actualizar lore si está habilitado
+        if (shouldShowUsesInLore()) {
+            List<Component> loreComponents = new ArrayList<>();
+            List<String> rawLore = getRawLore();
 
-    /**
-     * Establece la descripción del ítem usando una lista de strings
-     * @param lore Lista de líneas de descripción (admiten códigos de color y placeholders)
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setLoreFromList(List<String> lore) {
-        this.rawLore = new ArrayList<>(lore);
+            for (String line : rawLore) {
+                if (line.contains("%uses%")) {
+                    line = line.replace("%uses%", usesText);
+                }
+                loreComponents.add(ColorUtils.parse(line));
+            }
 
-        List<Component> loreComponents = new ArrayList<>();
-        for (String line : lore) {
-            loreComponents.add(ColorUtils.parse(line));
+            // Añadir línea de usos si no está en el lore original
+            if (rawLore.stream().noneMatch(line -> line.contains("%uses%"))) {
+                if (!rawLore.isEmpty()) loreComponents.add(ColorUtils.parse(""));
+                loreComponents.add(ColorUtils.parse(usesText));
+            }
+
+            adapter.setLore(meta, loreComponents);
         }
 
-        ItemMeta meta = itemStack.getItemMeta();
-        adapter.setLore(meta, loreComponents);
         itemStack.setItemMeta(meta);
-        return this;
     }
 
-    /**
-     * Establece la acción al hacer clic en el ítem
-     * @param clickHandler Manejador del clic
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setClickHandler(Consumer<ItemClickInfo> clickHandler) {
-        this.clickHandler = clickHandler;
-        return this;
-    }
+    public void updatePlaceholders(Player player) {
+        if (!usesPlaceholders()) return;
 
-    /**
-     * Establece la cantidad del ítem
-     * @param amount Cantidad (1-64)
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setAmount(int amount) {
-        itemStack.setAmount(Math.max(1, Math.min(64, amount)));
-        return this;
-    }
+        // Recargar configuración actualizada si es necesario
+        ItemConfiguration freshConfig = ItemManager.getItemConfiguration(configId);
+        if (freshConfig != null) {
+            this.config = freshConfig;
+        }
 
-    /**
-     * Añade un brillo al ítem (encantamiento oculto)
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setGlowing(boolean glowing) {
+        Player targetPlayer = (placeholderPlayer != null) ? placeholderPlayer : player;
         ItemMeta meta = itemStack.getItemMeta();
+        if (meta == null) return;
+
+        // Actualizar nombre
+        String rawName = getRawName();
+        if (rawName != null) {
+            String processedName = processPlaceholders(rawName, targetPlayer);
+
+            // Procesar placeholder de usos
+            if (hasLimitedUses() && processedName.contains("%uses%")) {
+                String usesText = getUsesDisplayFormat()
+                        .replace("%current%", String.valueOf(getCurrentUses()))
+                        .replace("%max%", String.valueOf(getMaxUses()));
+                processedName = processedName.replace("%uses%", usesText);
+            }
+
+            adapter.setDisplayName(meta, ColorUtils.parse(processedName));
+        }
+
+        // Actualizar lore
+        List<String> rawLore = getRawLore();
+        if (!rawLore.isEmpty()) {
+            List<Component> loreComponents = new ArrayList<>();
+            for (String line : rawLore) {
+                String processedLine = processPlaceholders(line, targetPlayer);
+
+                // Procesar placeholder de usos
+                if (hasLimitedUses() && processedLine.contains("%uses%")) {
+                    String usesText = getUsesDisplayFormat()
+                            .replace("%current%", String.valueOf(getCurrentUses()))
+                            .replace("%max%", String.valueOf(getMaxUses()));
+                    processedLine = processedLine.replace("%uses%", usesText);
+                }
+
+                loreComponents.add(ColorUtils.parse(processedLine));
+            }
+
+            // Añadir usos si está habilitado y no está en lore original
+            if (shouldShowUsesInLore() && hasLimitedUses() &&
+                    rawLore.stream().noneMatch(line -> line.contains("%uses%"))) {
+                loreComponents.add(ColorUtils.parse(""));
+                String usesText = getUsesDisplayFormat()
+                        .replace("%current%", String.valueOf(getCurrentUses()))
+                        .replace("%max%", String.valueOf(getMaxUses()));
+                loreComponents.add(ColorUtils.parse(usesText));
+            }
+
+            adapter.setLore(meta, loreComponents);
+        }
+
+        itemStack.setItemMeta(meta);
+    }
+
+    // ===== MÉTODOS AUXILIARES =====
+
+    private boolean containsPlaceholders(String text) {
+        return text != null && (text.contains("%") || text.contains("{") || text.contains("<"));
+    }
+
+    private String processPlaceholders(String text, Player player) {
+        if (text == null) return null;
+
+        String processed = text;
+
+        if (placeholderContext != null) {
+            processed = CustomPlaceholderManager.process(processed, placeholderContext);
+        }
+
+        if (isPlaceholderAPIEnabled()) {
+            processed = PlaceholderAPI.setPlaceholders(player, processed);
+        }
+
+        return processed;
+    }
+
+    private void setGlowing(ItemStack item, boolean glowing) {
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
 
         if (glowing) {
             meta.addEnchant(Enchantment.DURABILITY, 1, true);
@@ -235,16 +610,13 @@ public class InteractiveItem {
             meta.removeEnchant(Enchantment.DURABILITY);
         }
 
-        itemStack.setItemMeta(meta);
-        return this;
+        item.setItemMeta(meta);
     }
 
-    /**
-     * Oculta todos los atributos del ítem
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem hideAllAttributes() {
-        ItemMeta meta = itemStack.getItemMeta();
+    private void hideAllAttributes(ItemStack item) {
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES,
                 ItemFlag.HIDE_DESTROYS,
                 ItemFlag.HIDE_DYE,
@@ -252,509 +624,39 @@ public class InteractiveItem {
                 ItemFlag.HIDE_PLACED_ON,
                 ItemFlag.HIDE_POTION_EFFECTS,
                 ItemFlag.HIDE_UNBREAKABLE);
-        itemStack.setItemMeta(meta);
-        return this;
+        item.setItemMeta(meta);
     }
 
-    /**
-     * Añade un identificador personalizado al ítem
-     * @param plugin Plugin para crear la clave
-     * @param key Nombre de la clave
-     * @param value Valor a guardar
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setNBTTag(JavaPlugin plugin, String key, String value) {
-        ItemMeta meta = itemStack.getItemMeta();
-        NamespacedKey namespacedKey = new NamespacedKey(plugin, key);
-        meta.getPersistentDataContainer().set(namespacedKey, PersistentDataType.STRING, value);
-        itemStack.setItemMeta(meta);
-        return this;
+    private void makeUnique(ItemStack item) {
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+
+        NamespacedKey uniqueKey = new NamespacedKey(getPlugin(), NBT_UNIQUE_ID);
+        meta.getPersistentDataContainer().set(uniqueKey, PersistentDataType.STRING, UUID.randomUUID().toString());
+        item.setItemMeta(meta);
     }
 
-    /**
-     * Obtiene un identificador personalizado del ítem
-     * @param plugin Plugin para crear la clave
-     * @param key Nombre de la clave
-     * @return Valor guardado o null si no existe
-     */
-    public String getNBTTag(JavaPlugin plugin, String key) {
-        ItemMeta meta = itemStack.getItemMeta();
-        NamespacedKey namespacedKey = new NamespacedKey(plugin, key);
-        return meta.getPersistentDataContainer().get(namespacedKey, PersistentDataType.STRING);
-    }
+    // ===== GETTERS FINALES =====
 
-    /**
-     * Establece el ID único del ítem
-     * @param id ID personalizado
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setId(String id) {
-        this.itemId = id;
-        return this;
-    }
-
-    /**
-     * Obtiene el ID único del ítem
-     * @return ID del ítem
-     */
-    public String getId() {
-        return itemId;
-    }
-
-    /**
-     * Establece una acción personalizada para ejecutar al hacer clic
-     * @param action String de acción (ej: "show_help", "open_shop gold", "teleport spawn")
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setAction(String action) {
-        this.action = action;
-        return this;
-    }
-
-    /**
-     * Obtiene la acción configurada
-     * @return String de acción o null si no hay configurada
-     */
-    public String getAction() {
-        return action;
-    }
-
-    /**
-     * Verifica si el ítem tiene una acción configurada
-     * @return true si tiene acción
-     */
-    public boolean hasAction() {
-        return action != null && !action.trim().isEmpty();
-    }
-
-    /**
-     * Establece el número máximo de usos del ítem
-     * @param maxUses Número máximo de usos (-1 para infinitos)
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setMaxUses(int maxUses) {
-        this.maxUses = maxUses;
-        this.currentUses = maxUses;
-        updateUsesDisplay();
-        return this;
-    }
-
-    /**
-     * Obtiene el número máximo de usos
-     * @return Número máximo de usos (-1 si es infinito)
-     */
-    public int getMaxUses() {
-        return maxUses;
-    }
-
-    /**
-     * Obtiene los usos actuales restantes
-     * @return Usos restantes (-1 si es infinito)
-     */
-    public int getCurrentUses() {
-        return currentUses;
-    }
-
-    /**
-     * Establece los usos actuales del ítem
-     * @param uses Usos actuales
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setCurrentUses(int uses) {
-        this.currentUses = uses;
-        updateUsesDisplay();
-        return this;
-    }
-
-    /**
-     * Verifica si el ítem tiene usos limitados
-     * @return true si tiene usos limitados
-     */
-    public boolean hasLimitedUses() {
-        return maxUses > 0;
-    }
-
-    /**
-     * Verifica si el ítem aún tiene usos disponibles
-     * @return true si tiene usos disponibles
-     */
-    public boolean hasUsesRemaining() {
-        return maxUses == -1 || currentUses > 0;
-    }
-
-    /**
-     * Consume un uso del ítem
-     * @return true si se consumió un uso, false si no tenía usos restantes
-     */
-    public boolean consumeUse() {
-        if (maxUses == -1) return true; // Usos infinitos
-
-        if (currentUses > 0) {
-            currentUses--;
-            updateUsesDisplay();
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Establece si el ítem puede apilarse con otros ítems similares
-     * @param stackable true si puede apilarse
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setStackable(boolean stackable) {
-        this.stackable = stackable;
-        updateStackability();
-        return this;
-    }
-
-    /**
-     * Verifica si el ítem puede apilarse
-     * @return true si puede apilarse
-     */
-    public boolean isStackable() {
-        return stackable;
-    }
-
-    /**
-     * Establece el formato de visualización de usos
-     * @param format Formato (usa %current% y %max% como placeholders)
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setUsesDisplayFormat(String format) {
-        this.usesDisplayFormat = format;
-        updateUsesDisplay();
-        return this;
-    }
-
-    /**
-     * Establece si mostrar los usos en el lore
-     * @param show true para mostrar en el lore
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setShowUsesInLore(boolean show) {
-        this.showUsesInLore = show;
-        updateUsesDisplay();
-        return this;
-    }
-
-    /**
-     * Establece si mostrar los usos en el nombre
-     * @param show true para mostrar en el nombre
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setShowUsesInName(boolean show) {
-        this.showUsesInName = show;
-        updateUsesDisplay();
-        return this;
-    }
-
-    /**
-     * Actualiza la visualización de usos en el ítem
-     */
-    private void updateUsesDisplay() {
-        if (!hasLimitedUses()) return;
-
-        String usesText = usesDisplayFormat
-                .replace("%current%", String.valueOf(currentUses))
-                .replace("%max%", String.valueOf(maxUses));
-
-        ItemMeta meta = itemStack.getItemMeta();
-
-        // Actualizar nombre si está habilitado
-        if (showUsesInName && rawName != null) {
-            String displayName = rawName;
-            if (!rawName.contains("%uses%")) {
-                displayName = rawName + " " + usesText;
-            } else {
-                displayName = rawName.replace("%uses%", usesText);
-            }
-            adapter.setDisplayName(meta, ColorUtils.parse(displayName));
-        }
-
-        // Actualizar lore si está habilitado
-        if (showUsesInLore) {
-            List<Component> loreComponents = new ArrayList<>();
-
-            // Añadir lore original si existe
-            if (rawLore != null) {
-                for (String line : rawLore) {
-                    loreComponents.add(ColorUtils.parse(line));
-                }
-            }
-
-            // Añadir línea de usos si no está ya incluida en el lore original
-            boolean usesAlreadyInLore = rawLore != null && rawLore.stream()
-                    .anyMatch(line -> line.contains("%uses%"));
-
-            if (!usesAlreadyInLore) {
-                loreComponents.add(ColorUtils.parse(""));
-                loreComponents.add(ColorUtils.parse(usesText));
-            } else if (rawLore != null) {
-                // Reemplazar %uses% en el lore original
-                loreComponents.clear();
-                for (String line : rawLore) {
-                    String processedLine = line.replace("%uses%", usesText);
-                    loreComponents.add(ColorUtils.parse(processedLine));
-                }
-            }
-
-            adapter.setLore(meta, loreComponents);
-        }
-
-        itemStack.setItemMeta(meta);
-    }
-
-    /**
-     * Actualiza la capacidad de apilamiento del ítem
-     */
-    private void updateStackability() {
-        ItemMeta meta = itemStack.getItemMeta();
-
-        if (!stackable) {
-            // Hacer único añadiendo un NBT único
-            NamespacedKey uniqueKey = new NamespacedKey(
-                    ItemManager.getPlugin() != null ? ItemManager.getPlugin() : JavaPlugin.getProvidingPlugin(InteractiveItem.class),
-                    "unique_id"
-            );
-            meta.getPersistentDataContainer().set(uniqueKey, PersistentDataType.STRING, UUID.randomUUID().toString());
-        }
-
-        itemStack.setItemMeta(meta);
-    }
-
-    /**
-     * Establece si se debe cancelar el evento de interacción
-     * @param cancel true para cancelar el evento
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setCancelEvent(boolean cancel) {
-        this.cancelEvent = cancel;
-        return this;
-    }
-
-    /**
-     * Añade un comando a ejecutar cuando se hace clic en el ítem
-     * @param command Comando a ejecutar (formato: "player: /comando" o "console: /comando")
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem addCommand(String command) {
-        this.commands.add(command);
-        return this;
-    }
-
-    /**
-     * Establece la lista de comandos a ejecutar
-     * @param commands Lista de comandos (formato: "player: /comando" o "console: /comando")
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setCommands(List<String> commands) {
-        this.commands = new ArrayList<>(commands);
-        return this;
-    }
-
-    /**
-     * Activa el uso de placeholders en el nombre y lore del ítem
-     * @param use true para activar placeholders, false para desactivarlos
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem usePlaceholders(boolean use) {
-        this.usePlaceholders = use;
-        return this;
-    }
-
-    /**
-     * Establece un jugador específico para procesar los placeholders
-     * @param player Jugador para procesar los placeholders (o null para usar el jugador que usa el ítem)
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setPlaceholderPlayer(Player player) {
-        this.placeholderPlayer = player;
-        return this;
-    }
-
-    /**
-     * Establece un objeto de contexto para procesar placeholders personalizados
-     * @param context Objeto de contexto (ej: Player target)
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setPlaceholderContext(Object context) {
-        this.placeholderContext = context;
-        return this;
-    }
-
-    /**
-     * Ejecuta la acción configurada si existe
-     * @param clickInfo Información del clic
-     * @return true si se ejecutó una acción, false si no
-     */
-    public boolean executeAction(ItemClickInfo clickInfo) {
-        if (hasAction()) {
-            ActionContext context = new ActionContext(clickInfo.player(), clickInfo.source())
-                    .withData("clickType", clickInfo.clickType())
-                    .withData("slot", clickInfo.slot())
-                    .withData("item", this)
-                    .withData("itemStack", clickInfo.itemStack());
-
-            return GlobalActionManager.executeAction(action, context);
-        }
-        return false;
-    }
-
-    /**
-     * Ejecuta los comandos configurados
-     * @param player Jugador que hace clic en el ítem
-     */
-    public void executeCommands(Player player) {
-        CommandExecutor.builder(player)
-                .withPlaceholderPlayer(placeholderPlayer)
-                .withPlaceholderContext(placeholderContext)
-                .execute(commands);
-    }
-
-    /**
-     * Establece si el ítem debe consumirse al usar
-     * @param consume true para consumir al usar
-     * @return El mismo ítem (para encadenamiento)
-     */
-    public InteractiveItem setConsumeOnUse(boolean consume) {
-        this.consumeOnUse = consume;
-        return this;
-    }
-
-    /**
-     * Actualiza los placeholders del ítem para un jugador específico
-     * @param player Jugador para procesar los placeholders (si no hay un placeholderPlayer configurado)
-     */
-    public void updatePlaceholders(Player player) {
-        if (!usePlaceholders) return;
-
-        Player targetPlayer = (placeholderPlayer != null) ? placeholderPlayer : player;
-
-        ItemMeta meta = itemStack.getItemMeta();
-
-        if (rawName != null && !rawName.isEmpty()) {
-            String processedName = rawName;
-
-            // Procesar placeholder de usos si está presente
-            if (hasLimitedUses() && processedName.contains("%uses%")) {
-                String usesText = usesDisplayFormat
-                        .replace("%current%", String.valueOf(currentUses))
-                        .replace("%max%", String.valueOf(maxUses));
-                processedName = processedName.replace("%uses%", usesText);
-            }
-
-            if (placeholderContext != null) {
-                processedName = CustomPlaceholderManager.process(processedName, placeholderContext);
-            }
-            if (isPlaceholderAPIEnabled()) {
-                processedName = PlaceholderAPI.setPlaceholders(targetPlayer, processedName);
-            }
-            adapter.setDisplayName(meta, ColorUtils.parse(processedName));
-        }
-
-        if (rawLore != null && !rawLore.isEmpty()) {
-            List<Component> loreComponents = new ArrayList<>();
-            for (String line : rawLore) {
-                String processedLine = line;
-
-                // Procesar placeholder de usos si está presente
-                if (hasLimitedUses() && processedLine.contains("%uses%")) {
-                    String usesText = usesDisplayFormat
-                            .replace("%current%", String.valueOf(currentUses))
-                            .replace("%max%", String.valueOf(maxUses));
-                    processedLine = processedLine.replace("%uses%", usesText);
-                }
-
-                if (placeholderContext != null) {
-                    processedLine = CustomPlaceholderManager.process(processedLine, placeholderContext);
-                }
-                if (isPlaceholderAPIEnabled()) {
-                    processedLine = PlaceholderAPI.setPlaceholders(targetPlayer, processedLine);
-                }
-                loreComponents.add(ColorUtils.parse(processedLine));
-            }
-
-            // Añadir usos al final del lore si está habilitado y no está en el lore original
-            if (showUsesInLore && hasLimitedUses() &&
-                    (rawLore.stream().noneMatch(line -> line.contains("%uses%")))) {
-                loreComponents.add(ColorUtils.parse(""));
-                String usesText = usesDisplayFormat
-                        .replace("%current%", String.valueOf(currentUses))
-                        .replace("%max%", String.valueOf(maxUses));
-                loreComponents.add(ColorUtils.parse(usesText));
-            }
-
-            adapter.setLore(meta, loreComponents);
-        }
-
-        itemStack.setItemMeta(meta);
-    }
-
-    /**
-     * Obtiene el ItemStack asociado
-     * @return ItemStack del ítem
-     */
     public ItemStack getItemStack() {
         return itemStack.clone();
     }
 
-    /**
-     * Obtiene el manejador de clics
-     * @return Manejador de clics
-     */
-    public Consumer<ItemClickInfo> getClickHandler() {
-        return clickHandler;
+    public ItemConfiguration getConfiguration() {
+        return config;
     }
 
-    /**
-     * Verifica si el ítem debe consumirse al usar
-     * @return true si debe consumirse
-     */
-    public boolean shouldConsumeOnUse() {
-        return consumeOnUse;
-    }
-
-    /**
-     * Verifica si debe cancelar el evento
-     * @return true si debe cancelar
-     */
-    public boolean shouldCancelEvent() {
-        return cancelEvent;
-    }
-
-    /**
-     * Obtiene la lista de comandos a ejecutar
-     * @return Lista de comandos
-     */
-    public List<String> getCommands() {
-        return commands;
+    private JavaPlugin getPlugin() {
+        return ItemManager.getPlugin() != null ? ItemManager.getPlugin() :
+                JavaPlugin.getProvidingPlugin(InteractiveItem.class);
     }
 
     @Override
     public InteractiveItem clone() {
-        InteractiveItem clone = new InteractiveItem(this.itemStack.clone());
+        InteractiveItem clone = new InteractiveItem(this.itemStack.clone(), this.configId, this.config);
         clone.clickHandler = this.clickHandler;
-        clone.itemId = this.itemId;
-        clone.rawName = this.rawName;
-        clone.rawMaterialString = this.rawMaterialString;
-        clone.materialPlaceholderPlayer = this.materialPlaceholderPlayer;
-        if (this.rawLore != null) {
-            clone.rawLore = new ArrayList<>(this.rawLore);
-        }
-        clone.usePlaceholders = this.usePlaceholders;
         clone.placeholderPlayer = this.placeholderPlayer;
-        clone.commands = new ArrayList<>(this.commands);
         clone.placeholderContext = this.placeholderContext;
-        clone.action = this.action;
-        clone.consumeOnUse = this.consumeOnUse;
-        clone.cancelEvent = this.cancelEvent;
-        clone.maxUses = this.maxUses;
-        clone.currentUses = this.currentUses;
-        clone.stackable = this.stackable;
-        clone.usesDisplayFormat = this.usesDisplayFormat;
-        clone.showUsesInLore = this.showUsesInLore;
-        clone.showUsesInName = this.showUsesInName;
         return clone;
     }
 }

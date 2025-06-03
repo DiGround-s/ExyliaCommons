@@ -71,6 +71,7 @@ public abstract class ExyliaPlugin extends JavaPlugin {
     private void initializeExylia() {
         MenuManager.initialize(this);
         ItemManager.initialize(this);
+
         AdapterFactory.initialize(this);
         BungeeMessageSender.initialize(this);
 
