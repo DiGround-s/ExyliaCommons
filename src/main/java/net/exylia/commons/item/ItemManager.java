@@ -60,7 +60,6 @@ public class ItemManager implements Listener {
      */
     public static void registerItemConfiguration(String id, ItemConfiguration config) {
         itemConfigurations.put(id.toLowerCase(), config);
-        Bukkit.getLogger().info("Registered item configuration: " + id);
     }
 
     /**

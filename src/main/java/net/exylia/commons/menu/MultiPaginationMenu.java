@@ -360,9 +360,8 @@ public class MultiPaginationMenu extends Menu {
      */
     private void onPlayerCloseMenu(Player player) {
         cleanupPlayerResources(player);
-
-        if (super.getCloseHandler() != null) {
-            super.getCloseHandler().accept(player);
+        if (externalCloseHandler != null) {
+            externalCloseHandler.accept(player);
         }
     }
 
@@ -421,15 +420,12 @@ public class MultiPaginationMenu extends Menu {
         }
         return null;
     }
+    private Consumer<Player> externalCloseHandler = null;
 
     @Override
     public MultiPaginationMenu setCloseHandler(Consumer<Player> closeHandler) {
-        super.setCloseHandler(player -> {
-            onPlayerCloseMenu(player);
-            if (closeHandler != null) {
-                closeHandler.accept(player);
-            }
-        });
+        this.externalCloseHandler = closeHandler;
+        super.setCloseHandler(this::onPlayerCloseMenu);
         return this;
     }
 

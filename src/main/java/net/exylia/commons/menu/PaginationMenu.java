@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import static net.exylia.commons.ExyliaPlugin.isPlaceholderAPIEnabled;
 
@@ -211,9 +212,8 @@ public class PaginationMenu extends Menu {
 
     private void onPlayerCloseMenu(Player player) {
         cleanupPlayerResources(player);
-
-        if (super.getCloseHandler() != null) {
-            super.getCloseHandler().accept(player);
+        if (externalCloseHandler != null) {
+            externalCloseHandler.accept(player);
         }
     }
 
@@ -264,15 +264,12 @@ public class PaginationMenu extends Menu {
 
     // ==================== OVERRIDE CHAIN METHODS ====================
 
+    private Consumer<Player> externalCloseHandler = null;
+
     @Override
-    public PaginationMenu setCloseHandler(java.util.function.Consumer<Player> closeHandler) {
-        // Combinar con nuestro handler interno
-        super.setCloseHandler(player -> {
-            onPlayerCloseMenu(player);
-            if (closeHandler != null) {
-                closeHandler.accept(player);
-            }
-        });
+    public PaginationMenu setCloseHandler(Consumer<Player> closeHandler) {
+        this.externalCloseHandler = closeHandler;
+        super.setCloseHandler(this::onPlayerCloseMenu);
         return this;
     }
 
