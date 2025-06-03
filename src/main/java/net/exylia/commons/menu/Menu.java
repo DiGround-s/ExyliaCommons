@@ -25,7 +25,7 @@ public class Menu {
     Component title;
     final int size;
     final Map<Integer, MenuItem> items;
-    private Inventory inventory;
+    Inventory inventory;
     private Consumer<Player> closeHandler;
     private Menu returnMenu;
     boolean dynamicUpdates = false;
