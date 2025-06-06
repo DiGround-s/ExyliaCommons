@@ -247,16 +247,19 @@ public class MenuBuilder {
         return slots;
     }
 
-    /**
-     * Crea un ítem a partir de la configuración
-     * @param itemSection Sección de configuración del ítem
-     * @param player Jugador para el que se crea el ítem
-     * @return Ítem creado
-     */
     public static MenuItem buildMenuItem(ConfigurationSection itemSection, Player player) {
         MenuItem menuItem = new MenuItem(itemSection.getString("material", "STONE"), player);
+        applyItemConfig(menuItem, itemSection, player);
+        return menuItem;
+    }
 
-        // Propiedades básicas
+    public static MenuItem buildMenuItem(ConfigurationSection itemSection, Player player, Object placeholderContext) {
+        MenuItem menuItem = new MenuItem(itemSection.getString("material", "STONE"), player, placeholderContext);
+        applyItemConfig(menuItem, itemSection, player);
+        return menuItem;
+    }
+
+    private static void applyItemConfig(MenuItem menuItem, ConfigurationSection itemSection, Player player) {
         if (itemSection.contains("name")) {
             menuItem.setName(itemSection.getString("name"));
         }
@@ -265,27 +268,24 @@ public class MenuBuilder {
             menuItem.setAmount(itemSection.getInt("amount", 1));
         }
 
-        if (itemSection.contains("glowing")) {
-            menuItem.setGlowing(itemSection.getBoolean("glowing", false));
+        if (itemSection.contains("glow")) {
+            menuItem.setGlowing(itemSection.getBoolean("glow", false));
         }
 
-        // Lore
         if (itemSection.contains("lore")) {
             menuItem.setLore(itemSection.getStringList("lore").toArray(new String[0]));
         }
 
-        // Ocultar atributos
         if (itemSection.getBoolean("hide_attributes", false)) {
             menuItem.hideAllAttributes();
         }
 
-        // Soporte para PlaceholderAPI
         if (itemSection.getBoolean("use_placeholders", false)) {
-            menuItem.usePlaceholders(true);
             menuItem.setPlaceholderPlayer(player);
+            menuItem.usePlaceholders(true);
+            menuItem.updatePlaceholders(player);
         }
 
-        // Actualización dinámica
         if (itemSection.getBoolean("dynamic_update", false)) {
             menuItem.setDynamicUpdate(true);
             if (itemSection.contains("update_interval")) {
@@ -293,37 +293,16 @@ public class MenuBuilder {
             }
         }
 
-        // custom action
         if (itemSection.contains("action")) {
             menuItem.setAction(itemSection.getString("action"));
         }
 
-        // Comandos
         if (itemSection.contains("commands")) {
             List<String> commands = itemSection.getStringList("commands");
             if (!commands.isEmpty()) {
                 menuItem.setCommands(commands);
             }
         }
-
-        return menuItem;
     }
 
-    /**
-     * Crea un ítem a partir de la configuración con contexto de placeholders
-     * @param itemSection Sección de configuración del ítem
-     * @param player Jugador para el que se crea el ítem
-     * @param placeholderContext Objeto de contexto para placeholders personalizados
-     * @return Ítem creado
-     */
-    private MenuItem buildMenuItem(ConfigurationSection itemSection, Player player, Object placeholderContext) {
-        MenuItem menuItem = buildMenuItem(itemSection, player);
-
-        // Si el ítem usa placeholders, establecer el contexto
-        if (menuItem.usesPlaceholders() && placeholderContext != null) {
-            menuItem.setPlaceholderContext(placeholderContext);
-        }
-
-        return menuItem;
-    }
 }

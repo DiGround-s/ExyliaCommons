@@ -25,8 +25,9 @@ public class PaginationMenu extends Menu {
     private int previousPageButtonSlot;
     private int nextPageButtonSlot;
 
-    // Customización
-    private MenuItem fillerItem;
+    // Customización - Fillers
+    private MenuItem globalFillerItem;      // Filler para toda la GUI
+    private MenuItem itemSlotsFillerItem;   // Filler específico para slots de items vacíos
     private BiConsumer<Menu, Integer> menuCustomizer;
 
     // Control de paginación
@@ -42,12 +43,16 @@ public class PaginationMenu extends Menu {
         this.maxItemsPerPage = itemSlots.length;
 
         // Botones por defecto
-        this.previousPageButton = new MenuItem("ARROW")
-                .setName("&8« &7Página anterior")
+        this.previousPageButton = new MenuItem("headbase-eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZGExZDU1YjNmOTg5NDEwYTM0NzUyNjUwZTI0OGM5YjZjMTc4M2E3ZWMyYWEzZmQ3Nzg3YmRjNGQwZTYzN2QzOSJ9fX0=")
+                .setName("<#8fffc1>⏪ <#8fffc1>Anterior")
+                .setLore("&8⏵ <#e7cfff>Para ir a la siguiente página.")
+                .hideAllAttributes()
                 .setAmount(1);
 
-        this.nextPageButton = new MenuItem("ARROW")
-                .setName("&7Página siguiente &8»")
+        this.nextPageButton = new MenuItem("headurl-http://textures.minecraft.net/texture/fa87e3d96e1cfeb9ccfb3ba53a217faf5249e285533b271a2fb284c30dbd9829")
+                .setName("<#8fffc1>Siguiente <#a1ffc3>⏩")
+                .setLore("&8⏵ <#e7cfff>Para ir a la página anterior.")
+                .hideAllAttributes()
                 .setAmount(1);
 
         // Posiciones por defecto
@@ -81,8 +86,32 @@ public class PaginationMenu extends Menu {
         return this;
     }
 
+    /**
+     * Establece un filler global que se aplicará a todos los slots vacíos
+     * @param item Item filler global
+     * @return El mismo menú para encadenamiento
+     */
+    public PaginationMenu setGlobalFillerItem(MenuItem item) {
+        this.globalFillerItem = item;
+        return this;
+    }
+
+    /**
+     * Establece un filler específico para los slots de items que estén vacíos
+     * @param item Item filler para slots de items
+     * @return El mismo menú para encadenamiento
+     */
+    public PaginationMenu setItemSlotsFillerItem(MenuItem item) {
+        this.itemSlotsFillerItem = item;
+        return this;
+    }
+
+    /**
+     * @deprecated Usar setGlobalFillerItem() o setItemSlotsFillerItem()
+     */
+    @Deprecated
     public PaginationMenu setFillerItem(MenuItem item) {
-        this.fillerItem = item;
+        this.globalFillerItem = item;
         return this;
     }
 
@@ -105,12 +134,14 @@ public class PaginationMenu extends Menu {
         playerCurrentPage.put(player, page);
         currentPage = page;
         updateMenuTitle(player, page, maxPages);
-        clearAllItems();
+
+        // Aplicar fillers usando el sistema de capas
+        applyFillers(player, page);
+
+        // Agregar navegación y items
         setupNavigationButtons(player, page, maxPages);
         addItemsForPage(player, page);
-        if (fillerItem != null) {
-            fillEmptySlots(fillerItem);
-        }
+
         if (menuCustomizer != null) {
             menuCustomizer.accept(this, page);
         }
@@ -137,6 +168,69 @@ public class PaginationMenu extends Menu {
             }
         }
         super.title = net.exylia.commons.utils.ColorUtils.parse(newTitle);
+    }
+
+    /**
+     * Aplica los fillers usando un sistema de capas similar a MultiPaginationMenu
+     */
+    private void applyFillers(Player player, int page) {
+        // PASO 1: Guardar items ya establecidos manualmente (antes del open) - excluyendo slots de paginación
+        Map<Integer, MenuItem> manualItems = new HashMap<>();
+        for (Map.Entry<Integer, MenuItem> entry : super.items.entrySet()) {
+            int slot = entry.getKey();
+            // Solo preservar items que NO están en slots de paginación
+            boolean isItemSlot = false;
+            for (int itemSlot : itemSlots) {
+                if (slot == itemSlot) {
+                    isItemSlot = true;
+                    break;
+                }
+            }
+            if (!isItemSlot) {
+                manualItems.put(slot, entry.getValue());
+            }
+        }
+
+        // PASO 2: Limpiar TODOS los items (incluyendo slots de paginación de páginas anteriores)
+        super.items.clear();
+
+        // PASO 3: Aplicar filler global primero (capa base), pero no en slots con items manuales
+        if (globalFillerItem != null) {
+            for (int i = 0; i < super.size; i++) {
+                if (!manualItems.containsKey(i)) {
+                    MenuItem fillerClone = globalFillerItem.clone();
+                    if (fillerClone.usesPlaceholders()) {
+                        fillerClone.updatePlaceholders(player);
+                    }
+                    super.setItem(i, fillerClone);
+                }
+            }
+        }
+
+        // PASO 4: Aplicar filler específico para item slots vacíos (sobrescribe el global en estos slots)
+        if (itemSlotsFillerItem != null) {
+            // Calcular qué slots de items estarán vacíos en esta página
+            int start = (page - 1) * maxItemsPerPage;
+            int end = Math.min(start + maxItemsPerPage, paginationItems.size());
+            int itemsInPage = end - start;
+
+            // Aplicar filler a los slots de items que estarán vacíos, pero no en slots con items manuales
+            for (int i = itemsInPage; i < itemSlots.length; i++) {
+                int slot = itemSlots[i];
+                if (!manualItems.containsKey(slot)) {
+                    MenuItem fillerClone = itemSlotsFillerItem.clone();
+                    if (fillerClone.usesPlaceholders()) {
+                        fillerClone.updatePlaceholders(player);
+                    }
+                    super.setItem(slot, fillerClone);
+                }
+            }
+        }
+
+        // PASO 5: Restaurar items establecidos manualmente (que NO son de paginación)
+        for (Map.Entry<Integer, MenuItem> entry : manualItems.entrySet()) {
+            super.setItem(entry.getKey(), entry.getValue());
+        }
     }
 
     private void setupNavigationButtons(Player player, int page, int maxPages) {
@@ -174,6 +268,10 @@ public class PaginationMenu extends Menu {
         }
     }
 
+    /**
+     * @deprecated No se usa más, la lógica está en applyFillers()
+     */
+    @Deprecated
     private void clearAllItems() {
         for (int slot : itemSlots) {
             super.items.remove(slot);
@@ -258,6 +356,14 @@ public class PaginationMenu extends Menu {
         return this;
     }
 
+    public MenuItem getGlobalFillerItem() {
+        return globalFillerItem;
+    }
+
+    public MenuItem getItemSlotsFillerItem() {
+        return itemSlotsFillerItem;
+    }
+
     public void cleanup(Player player) {
         cleanupPlayerResources(player);
     }
@@ -320,11 +426,14 @@ public class PaginationMenu extends Menu {
             cloned.setPreviousPageButton(previousPageButton.clone(), previousPageButtonSlot);
         }
         if (nextPageButton != null) {
-            cloned.setPreviousPageButton(nextPageButton.clone(), nextPageButtonSlot);
+            cloned.setNextPageButton(nextPageButton.clone(), nextPageButtonSlot);
         }
 
-        if (fillerItem != null) {
-            cloned.setFillerItem(fillerItem.clone());
+        if (globalFillerItem != null) {
+            cloned.setGlobalFillerItem(globalFillerItem.clone());
+        }
+        if (itemSlotsFillerItem != null) {
+            cloned.setItemSlotsFillerItem(itemSlotsFillerItem.clone());
         }
         if (menuCustomizer != null) {
             cloned.setMenuCustomizer(menuCustomizer);

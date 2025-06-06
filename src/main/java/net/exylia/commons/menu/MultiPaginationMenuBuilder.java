@@ -58,25 +58,21 @@ public class MultiPaginationMenuBuilder {
             menu.usePlaceholdersInTitle(true);
         }
 
-        // Cargar el item de relleno global si existe
         ConfigurationSection fillerSection = config.getConfigurationSection("filler");
         if (fillerSection != null) {
             MenuItem fillerItem = buildMenuItem(fillerSection, player);
-            menu.fillEmptySlots(fillerItem);
+            menu.setGlobalFiller(fillerItem);
         }
 
-        // Cargar cada sección paginable
         for (String key : config.getKeys(false)) {
             ConfigurationSection sectionConfig = config.getConfigurationSection(key);
             if (sectionConfig == null) continue;
 
-            // Buscar secciones que tengan la estructura de paginación
             if (isPaginationSection(sectionConfig)) {
                 buildPaginationSection(menu, key, sectionConfig, player);
             }
         }
 
-        // Cargar items estáticos normales
         ConfigurationSection itemsSection = config.getConfigurationSection("items");
         if (itemsSection != null) {
             loadStaticItems(menu, itemsSection, player, rows);

@@ -148,16 +148,26 @@ public class Menu {
      * Actualiza todos los ítems en el inventario
      */
     public void updateItems() {
-        if (inventory == null || viewer == null) return;
+        if (inventory == null || getViewer() == null) return;
 
         for (Map.Entry<Integer, MenuItem> entry : items.entrySet()) {
             MenuItem item = entry.getValue();
 
-            // Actualizar placeholders si el ítem los usa
             if (item.usesPlaceholders()) {
-                item.updatePlaceholders(viewer);
-                inventory.setItem(entry.getKey(), item.getItemStack());
+                item.updatePlaceholders(getViewer());
             }
+
+            inventory.setItem(entry.getKey(), item.getItemStack());
+        }
+    }
+
+    private void updateSpecificItem(PaginationMenu menu, MenuItem item, int slot) {
+        menu.getItems().put(slot, item);
+
+        Player viewer = menu.getViewer();
+        if (viewer != null) {
+            viewer.getOpenInventory();
+            viewer.getOpenInventory().getTopInventory().setItem(slot, item.getItemStack());
         }
     }
 

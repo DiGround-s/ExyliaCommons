@@ -118,6 +118,56 @@ public class MultiPaginationMenu extends Menu {
         public int getItemCount() {
             return items.size();
         }
+
+        /**
+         * Limpia todos los items de la sección
+         * @return La misma sección para encadenamiento
+         */
+        public PaginationSection clearItems() {
+            items.clear();
+            currentPage = 1; // Resetear a la primera página
+            selectedIndex = null; // Limpiar selección
+            return this;
+        }
+
+        /**
+         * Reemplaza todos los items con una nueva lista
+         * @param newItems Nueva lista de items
+         * @return La misma sección para encadenamiento
+         */
+        public PaginationSection setItems(List<MenuItem> newItems) {
+            items.clear();
+            items.addAll(newItems);
+            currentPage = 1; // Resetear a la primera página
+            selectedIndex = null; // Limpiar selección
+            return this;
+        }
+
+        /**
+         * Obtiene una copia de todos los items en la sección
+         * @return Lista de todos los items
+         */
+        public List<MenuItem> getAllItems() {
+            return new ArrayList<>(items);
+        }
+
+        /**
+         * Remueve un item específico por índice
+         * @param index Índice del item a remover
+         * @return La misma sección para encadenamiento
+         */
+        public PaginationSection removeItem(int index) {
+            if (index >= 0 && index < items.size()) {
+                items.remove(index);
+                // Ajustar selección si es necesario
+                if (selectedIndex != null && selectedIndex == index) {
+                    selectedIndex = null;
+                } else if (selectedIndex != null && selectedIndex > index) {
+                    selectedIndex--;
+                }
+            }
+            return this;
+        }
     }
 
     private final Map<String, PaginationSection> sections = new LinkedHashMap<>();
@@ -208,20 +258,41 @@ public class MultiPaginationMenu extends Menu {
         }
     }
 
+    private MenuItem globalFillerItem = null;
+
+    public MultiPaginationMenu setGlobalFiller(MenuItem filler) {
+        this.globalFillerItem = filler;
+        return this;
+    }
+
     private void updateMenu(Player player) {
         Map<String, Integer> pages = playerPages.get(player);
         if (pages == null) return;
 
-        // Limpiar todos los items
+        // PASO 1: Limpiar todos los items
         super.items.clear();
 
-        // Actualizar cada sección
+        // PASO 2: Aplicar filler global primero (capa base)
+        if (globalFillerItem != null) {
+            for (int i = 0; i < super.size; i++) {
+                super.setItem(i, globalFillerItem.clone());
+            }
+        }
+
+        // PASO 3: Procesar cada sección (sobrescribir donde sea necesario)
         for (Map.Entry<String, PaginationSection> entry : sections.entrySet()) {
             String sectionName = entry.getKey();
             PaginationSection section = entry.getValue();
             int currentPage = pages.getOrDefault(sectionName, 1);
 
-            // Colocar items de la página actual
+            // PASO 3a: Aplicar filler de sección (sobrescribe el global en estos slots)
+            if (section.fillerItem != null) {
+                for (int slot : section.slots) {
+                    super.setItem(slot, section.fillerItem.clone());
+                }
+            }
+
+            // PASO 3b: Colocar items de la página actual (sobrescribe los fillers)
             List<MenuItem> pageItems = section.getItemsForPage(currentPage);
             for (int i = 0; i < pageItems.size() && i < section.slots.length; i++) {
                 int slot = section.slots[i];
@@ -232,10 +303,8 @@ public class MultiPaginationMenu extends Menu {
 
                 // Si este item está seleccionado y hay un template especial, usarlo
                 if (section.isItemSelected(globalIndex) && section.selectedItemTemplate != null) {
-                    // Clonar el template y aplicar los placeholders del item original
                     MenuItem selectedItem = section.selectedItemTemplate.clone();
                     if (selectedItem.usesPlaceholders()) {
-                        selectedItem.setPlaceholderContext(item.getPlaceholderContext());
                         selectedItem.updatePlaceholders(player);
                     }
                     item = selectedItem;
@@ -251,36 +320,21 @@ public class MultiPaginationMenu extends Menu {
                 Consumer<MenuClickInfo> originalHandler = item.getClickHandler();
 
                 item.setClickHandler(clickInfo -> {
-                    // Primero ejecutar el handler de selección si existe
                     if (section.onItemSelect != null) {
                         section.onItemSelect.accept(clickInfo, finalGlobalIndex);
                     }
-
-                    // Marcar como seleccionado
                     section.setSelectedIndex(finalGlobalIndex);
-
-                    // Actualizar el menú para reflejar la selección
                     updateMenu(player);
-
-                    // Ejecutar el handler original si existe
                     if (originalHandler != null) {
                         originalHandler.accept(clickInfo);
                     }
                 });
 
+                // Colocar el item (sobrescribe filler de sección o global)
                 super.setItem(slot, item);
             }
 
-            // Colocar filler en slots vacíos de esta sección
-            if (section.fillerItem != null) {
-                for (int slot : section.slots) {
-                    if (super.getItem(slot) == null) {
-                        super.setItem(slot, section.fillerItem.clone());
-                    }
-                }
-            }
-
-            // Colocar botones de navegación
+            // PASO 3c: Colocar botones de navegación
             if (currentPage > 1 && section.previousButton != null) {
                 MenuItem prevButton = section.previousButton.clone();
                 if (prevButton.usesPlaceholders()) {
@@ -421,6 +475,8 @@ public class MultiPaginationMenu extends Menu {
         return null;
     }
     private Consumer<Player> externalCloseHandler = null;
+
+
 
     @Override
     public MultiPaginationMenu setCloseHandler(Consumer<Player> closeHandler) {

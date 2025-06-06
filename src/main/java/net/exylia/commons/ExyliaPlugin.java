@@ -4,9 +4,11 @@ import net.exylia.commons.command.BungeeMessageSender;
 import net.exylia.commons.item.ItemManager;
 import net.exylia.commons.menu.MenuActionManager;
 import net.exylia.commons.menu.MenuManager;
+import net.exylia.commons.placeholders.PlaceholderRegistry;
 import net.exylia.commons.redis.RedisIntegration;
 import net.exylia.commons.utils.AdapterFactory;
 import net.exylia.commons.utils.ColorUtils;
+import net.exylia.commons.utils.ConfirmationManager;
 import net.exylia.commons.utils.OldColorUtils;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import org.bukkit.Bukkit;
@@ -71,7 +73,7 @@ public abstract class ExyliaPlugin extends JavaPlugin {
     private void initializeExylia() {
         MenuManager.initialize(this);
         ItemManager.initialize(this);
-
+        ConfirmationManager.initialize(this);
         AdapterFactory.initialize(this);
         BungeeMessageSender.initialize(this);
 
@@ -116,6 +118,7 @@ public abstract class ExyliaPlugin extends JavaPlugin {
         ColorUtils.shutdown();
         OldColorUtils.shutdown();
         AdapterFactory.close();
+        PlaceholderRegistry.clear();
         MenuActionManager.unregisterPluginActions(this);
     }
 

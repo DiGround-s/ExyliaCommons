@@ -5,6 +5,7 @@ import net.exylia.commons.utils.AdapterFactory;
 import net.exylia.commons.utils.ColorUtils;
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.exylia.commons.utils.ItemMetaAdapter;
+import net.exylia.commons.placeholders.PlaceholderRegistry;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -63,6 +64,14 @@ public class MenuItem {
         this.menuItemId = UUID.randomUUID().toString();
     }
 
+    public MenuItem(String materialString, Player player, Object placeholderContext) {
+        this.rawMaterialString = materialString;
+        this.materialPlaceholderPlayer = player;
+        this.placeholderContext = placeholderContext;
+        this.itemStack = createItemFromString(processPlaceholdersInMaterial(materialString, player));
+        this.menuItemId = UUID.randomUUID().toString();
+    }
+
     /**
      * Constructor del ítem de menú usando String con jugador específico para placeholders
      * @param materialString String que representa el material o tipo de cabeza (puede contener placeholders)
@@ -97,10 +106,8 @@ public class MenuItem {
 
         String processed = materialString;
 
-        // Procesar placeholders personalizados si hay contexto
-        if (placeholderContext != null) {
-            processed = CustomPlaceholderManager.process(processed, placeholderContext);
-        }
+        // Procesar placeholders personalizados usando el nuevo sistema
+        processed = PlaceholderRegistry.process(processed, placeholderContext, player);
 
         // Procesar PlaceholderAPI si está disponible
         if (isPlaceholderAPIEnabled()) {
@@ -405,7 +412,7 @@ public class MenuItem {
         clone.placeholderPlayer = this.placeholderPlayer;
         clone.commands = new ArrayList<>(this.commands);
         clone.placeholderContext = this.placeholderContext;
-        clone.action = this.action; // Añadir esta línea
+        clone.action = this.action;
         return clone;
     }
 
@@ -467,7 +474,7 @@ public class MenuItem {
 
     /**
      * Establece un objeto de contexto para procesar placeholders personalizados
-     * @param context Objeto de contexto (ej: Player target)
+     * @param context Objeto de contexto (ej: Player target, Kit, KitCategory, etc.)
      * @return El mismo ítem (para encadenamiento)
      */
     public MenuItem setPlaceholderContext(Object context) {
@@ -590,7 +597,46 @@ public class MenuItem {
     }
 
     /**
+     * Procesa placeholders en el material y actualiza el ItemStack
+     * Útil para cuando se establece el contexto después de crear el item
+     */
+    public void processMaterialPlaceholders(Player player) {
+        if (rawMaterialString == null) return;
+
+        // Procesar placeholders en el material
+        String processedMaterial = rawMaterialString;
+
+        // Usar el nuevo sistema de placeholders
+        processedMaterial = PlaceholderRegistry.process(processedMaterial, placeholderContext, player);
+
+        // Procesar PlaceholderAPI si está disponible
+        if (isPlaceholderAPIEnabled()) {
+            processedMaterial = PlaceholderAPI.setPlaceholders(player, processedMaterial);
+        }
+
+        // Solo actualizar si el material cambió
+        if (!processedMaterial.equals(rawMaterialString)) {
+            // Crear nuevo ItemStack con el material procesado
+            ItemStack newItemStack = createItemFromString(processedMaterial);
+
+            // Conservar la metadata actual
+            ItemMeta currentMeta = itemStack.getItemMeta();
+            if (currentMeta != null) {
+                newItemStack.setItemMeta(currentMeta);
+            }
+
+            // Conservar la cantidad
+            newItemStack.setAmount(itemStack.getAmount());
+
+            // Reemplazar el ItemStack
+            this.itemStack.setType(newItemStack.getType());
+            this.itemStack.setItemMeta(newItemStack.getItemMeta());
+        }
+    }
+
+    /**
      * Actualiza los placeholders del ítem para un jugador específico
+     * AHORA USA EL NUEVO SISTEMA DE PLACEHOLDERS
      *
      * @param player Jugador para procesar los placeholders (si no hay un placeholderPlayer configurado)
      */
@@ -601,27 +647,35 @@ public class MenuItem {
 
         ItemMeta meta = itemStack.getItemMeta();
 
+        // Procesar nombre con el nuevo sistema
         if (rawName != null && !rawName.isEmpty()) {
             String processedName = rawName;
-            if (placeholderContext != null) {
-                processedName = CustomPlaceholderManager.process(processedName, placeholderContext);
-            }
+
+            // Usar el nuevo sistema de placeholders
+            processedName = PlaceholderRegistry.process(processedName, placeholderContext, targetPlayer);
+
+            // Procesar PlaceholderAPI si está disponible
             if (isPlaceholderAPIEnabled()) {
                 processedName = PlaceholderAPI.setPlaceholders(targetPlayer, processedName);
             }
+
             adapter.setDisplayName(meta, ColorUtils.parse(processedName));
         }
 
+        // Procesar lore con el nuevo sistema
         if (rawLore != null && !rawLore.isEmpty()) {
             List<Component> loreComponents = new ArrayList<>();
             for (String line : rawLore) {
                 String processedLine = line;
-                if (placeholderContext != null) {
-                    processedLine = CustomPlaceholderManager.process(processedLine, placeholderContext);
-                }
+
+                // Usar el nuevo sistema de placeholders
+                processedLine = PlaceholderRegistry.process(processedLine, placeholderContext, targetPlayer);
+
+                // Procesar PlaceholderAPI si está disponible
                 if (isPlaceholderAPIEnabled()) {
                     processedLine = PlaceholderAPI.setPlaceholders(targetPlayer, processedLine);
                 }
+
                 loreComponents.add(ColorUtils.parse(processedLine));
             }
             adapter.setLore(meta, loreComponents);
@@ -635,7 +689,7 @@ public class MenuItem {
      * @param player Jugador para procesar los placeholders
      */
     public void updateAll(Player player) {
-        updateMaterial(player);
+        processMaterialPlaceholders(player);
         updatePlaceholders(player);
     }
 
