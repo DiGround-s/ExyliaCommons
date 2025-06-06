@@ -10,217 +10,203 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import static net.exylia.commons.ExyliaPlugin.isPlaceholderAPIEnabled;
 
 /**
- * Representa un menú interactivo
+ * Sistema de menús optimizado con cache y operaciones asíncronas
  */
 public class Menu {
-    Component title;
-    final int size;
-    final Map<Integer, MenuItem> items;
-    Inventory inventory;
-    private Consumer<Player> closeHandler;
-    private Menu returnMenu;
-    boolean dynamicUpdates = false;
-    JavaPlugin plugin;
-    long updateInterval = 20L; // 1 segundo por defecto
-    private int taskId = -1;
-    private Player viewer;
-    private Map<Integer, Long> itemUpdateTimes = new HashMap<>();
-    private Map<Integer, Integer> itemTaskIds = new HashMap<>();
-    String rawTitle;
-    boolean usePlaceholdersInTitle = false;
-    Object titlePlaceholderContext = null;
-    private final InventoryAdapter inventoryAdapter = AdapterFactory.getInventoryAdapter();
 
-    /**
-     * Constructor del menú
-     * @param title Título del menú (admite códigos de color)
-     * @param rows Número de filas (1-6)
-     */
+    // Cache estático para inventarios reutilizables
+    private static final Map<String, Inventory> INVENTORY_CACHE = new ConcurrentHashMap<>();
+    private static final int MAX_CACHE_SIZE = 50;
+
+    // Configuración del menú
+    protected Component title;
+    protected final int size;
+    protected final Map<Integer, MenuItem> items;
+    protected String rawTitle;
+    protected boolean usePlaceholdersInTitle = false;
+    protected Object titlePlaceholderContext = null;
+
+    // Estado del menú
+    protected Inventory inventory;
+    protected Player viewer;
+    protected Consumer<Player> closeHandler;
+    protected Menu returnMenu;
+
+    // Configuración de actualizaciones
+    protected boolean dynamicUpdates = false;
+    protected JavaPlugin plugin;
+    protected long updateInterval = 20L;
+    protected int globalTaskId = -1;
+    protected final Map<Integer, Integer> itemTaskIds = new ConcurrentHashMap<>();
+
+    // Fillers globales
+    protected MenuItem globalFiller;
+    protected MenuItem borderFiller;
+
+    // Adaptador de inventario
+    protected final InventoryAdapter inventoryAdapter = AdapterFactory.getInventoryAdapter();
+
     public Menu(String title, int rows) {
         this.rawTitle = title;
         this.title = ColorUtils.parse(title);
-        this.size = Math.max(9, Math.min(54, rows * 9)); // Entre 1 y 6 filas
-        this.items = new HashMap<>();
+        this.size = Math.max(9, Math.min(54, rows * 9));
+        this.items = new ConcurrentHashMap<>();
     }
 
-    /**
-     * Constructor del menú con componente directamente
-     * @param title Componente de título ya formateado
-     * @param rows Número de filas (1-6)
-     */
     public Menu(Component title, int rows) {
         this.title = title;
-        this.size = Math.max(9, Math.min(54, rows * 9)); // Entre 1 y 6 filas
-        this.items = new HashMap<>();
+        this.size = Math.max(9, Math.min(54, rows * 9));
+        this.items = new ConcurrentHashMap<>();
     }
 
-    /**
-     * Establece un ítem en una posición del menú
-     * @param slot Posición (0-53)
-     * @param menuItem Ítem a colocar
-     * @return El mismo menú (para encadenamiento)
-     */
+    // ==================== CONFIGURACIÓN BÁSICA ====================
+
     public Menu setItem(int slot, MenuItem menuItem) {
-        if (slot >= 0 && slot < size) {
-            items.put(slot, menuItem);
+        if (slot < 0 || slot >= size) return this;
 
-            // Actualiza el inventario si ya está creado
-            if (inventory != null) {
-                // Si hay un viewer y el ítem usa placeholders, actualiza los placeholders
-                if (viewer != null && menuItem.usesPlaceholders()) {
-                    menuItem.updatePlaceholders(viewer);
-                }
+        items.put(slot, menuItem);
 
-                inventory.setItem(slot, menuItem.getItemStack());
-
-                // Si el ítem necesita actualizaciones dinámicas, programar su actualización
-                if (viewer != null && menuItem.needsDynamicUpdate() && plugin != null) {
-                    scheduleItemUpdate(slot, menuItem);
-                }
-            }
+        if (inventory != null && viewer != null) {
+            updateSingleItem(slot, menuItem);
         }
+
         return this;
     }
 
-    /**
-     * Establece un manejador para cuando se cierra el menú
-     * @param closeHandler Manejador de cierre
-     * @return El mismo menú (para encadenamiento)
-     */
     public Menu setCloseHandler(Consumer<Player> closeHandler) {
         this.closeHandler = closeHandler;
         return this;
     }
 
-    /**
-     * Establece un menú al que volver cuando se cierre este
-     * @param returnMenu Menú al que volver
-     * @return El mismo menú (para encadenamiento)
-     */
     public Menu setReturnMenu(Menu returnMenu) {
         this.returnMenu = returnMenu;
         return this;
     }
 
+    // ==================== SISTEMA DE FILLERS GLOBAL ====================
+
     /**
-     * Activa las actualizaciones dinámicas del menú
-     * @param plugin Plugin para programar la tarea
-     * @param tickInterval Intervalo de actualización en ticks
-     * @return El mismo menú (para encadenamiento)
+     * Establece un filler global para todos los slots vacíos
      */
-    public Menu enableDynamicUpdates(JavaPlugin plugin, long tickInterval) {
-        this.dynamicUpdates = true;
-        this.plugin = plugin;
-        this.updateInterval = tickInterval;
+    public Menu setGlobalFiller(MenuItem filler) {
+        this.globalFiller = filler;
         return this;
     }
 
     /**
-     * Desactiva las actualizaciones dinámicas del menú
-     * @return El mismo menú (para encadenamiento)
+     * Crea un borde alrededor del menú
      */
-    public Menu disableDynamicUpdates() {
-        this.dynamicUpdates = false;
-        if (taskId != -1) {
-            Bukkit.getScheduler().cancelTask(taskId);
-            taskId = -1;
-        }
-
-        // Cancelar todas las tareas de actualización de ítems individuales
-        for (int taskId : itemTaskIds.values()) {
-            Bukkit.getScheduler().cancelTask(taskId);
-        }
-        itemTaskIds.clear();
-
+    public Menu setBorderFiller(MenuItem borderItem) {
+        this.borderFiller = borderItem;
         return this;
     }
 
     /**
-     * Actualiza todos los ítems en el inventario
+     * Aplica fillers usando un sistema de capas
      */
-    public void updateItems() {
-        if (inventory == null || getViewer() == null) return;
+    protected void applyFillers(Player player) {
+        // Capa 1: Filler global
+        if (globalFiller != null) {
+            for (int i = 0; i < size; i++) {
+                if (!items.containsKey(i)) {
+                    MenuItem filler = globalFiller.clone();
+                    if (filler.usesPlaceholders()) {
+                        filler.updatePlaceholders(player);
+                    }
+                    items.put(i, filler);
+                }
+            }
+        }
 
-        for (Map.Entry<Integer, MenuItem> entry : items.entrySet()) {
-            MenuItem item = entry.getValue();
+        // Capa 2: Borde (sobrescribe el filler global en bordes)
+        if (borderFiller != null) {
+            applyBorder(player);
+        }
+    }
 
-            if (item.usesPlaceholders()) {
-                item.updatePlaceholders(getViewer());
+    private void applyBorder(Player player) {
+        int rows = size / 9;
+
+        // Fila superior e inferior
+        for (int i = 0; i < 9; i++) {
+            setBorderItem(i, player);
+            setBorderItem(size - 9 + i, player);
+        }
+
+        // Columnas laterales
+        for (int i = 1; i < rows - 1; i++) {
+            setBorderItem(i * 9, player);
+            setBorderItem(i * 9 + 8, player);
+        }
+    }
+
+    private void setBorderItem(int slot, Player player) {
+        MenuItem border = borderFiller.clone();
+        if (border.usesPlaceholders()) {
+            border.updatePlaceholders(player);
+        }
+        items.put(slot, border);
+    }
+
+    // ==================== SISTEMA DE CACHE ====================
+
+    private String getCacheKey() {
+        return String.format("menu_%s_%d_%d",
+                rawTitle != null ? rawTitle.hashCode() : title.hashCode(),
+                size,
+                items.size());
+    }
+
+    private Inventory createOrGetCachedInventory() {
+        if (!usePlaceholdersInTitle && globalFiller == null) {
+            String cacheKey = getCacheKey();
+            Inventory cached = INVENTORY_CACHE.get(cacheKey);
+
+            if (cached != null) {
+                return cloneInventory(cached);
             }
 
-            inventory.setItem(entry.getKey(), item.getItemStack());
-        }
-    }
+            Inventory newInventory = inventoryAdapter.createInventory(size, title);
 
-    private void updateSpecificItem(PaginationMenu menu, MenuItem item, int slot) {
-        menu.getItems().put(slot, item);
-
-        Player viewer = menu.getViewer();
-        if (viewer != null) {
-            viewer.getOpenInventory();
-            viewer.getOpenInventory().getTopInventory().setItem(slot, item.getItemStack());
-        }
-    }
-
-    /**
-     * Programa la actualización de un ítem específico
-     * @param slot Slot del ítem
-     * @param item Ítem a actualizar
-     */
-    private void scheduleItemUpdate(int slot, MenuItem item) {
-        // Cancelar tarea anterior si existe
-        if (itemTaskIds.containsKey(slot)) {
-            Bukkit.getScheduler().cancelTask(itemTaskIds.get(slot));
-        }
-
-        // Programar nueva tarea
-        int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
-            if (viewer != null && viewer.isOnline() && inventory != null) {
-                item.updatePlaceholders(viewer);
-                inventory.setItem(slot, item.getItemStack());
-            } else {
-                // Si el jugador ya no está viendo el inventario, cancelar la tarea
-                Bukkit.getScheduler().cancelTask(itemTaskIds.getOrDefault(slot, -1));
-                itemTaskIds.remove(slot);
+            if (INVENTORY_CACHE.size() < MAX_CACHE_SIZE) {
+                INVENTORY_CACHE.put(cacheKey, cloneInventory(newInventory));
             }
-        }, item.getUpdateInterval(), item.getUpdateInterval());
 
-        itemTaskIds.put(slot, taskId);
+            return newInventory;
+        }
+
+        return inventoryAdapter.createInventory(size, title);
     }
-    /**
-     * Activa el uso de placeholders en el título del menú
-     * @param use true para activar placeholders
-     * @return El mismo menú (para encadenamiento)
-     */
+
+    private Inventory cloneInventory(Inventory original) {
+        Inventory clone = inventoryAdapter.createInventory(original.getSize(), title);
+        for (int i = 0; i < original.getSize(); i++) {
+            clone.setItem(i, original.getItem(i));
+        }
+        return clone;
+    }
+
+
+    // ==================== PLACEHOLDERS ====================
+
     public Menu usePlaceholdersInTitle(boolean use) {
         this.usePlaceholdersInTitle = use;
         return this;
     }
 
-    /**
-     * Establece un objeto de contexto para los placeholders del título
-     * @param context Objeto de contexto para placeholders personalizados
-     * @return El mismo menú (para encadenamiento)
-     */
     public Menu setTitlePlaceholderContext(Object context) {
         this.titlePlaceholderContext = context;
         return this;
     }
 
-    /**
-     * Actualiza el título con placeholders para un jugador específico
-     * @param player Jugador para procesar los placeholders
-     * @return El mismo menú (para encadenamiento)
-     */
     public Menu updateTitle(Player player) {
         if (!usePlaceholdersInTitle || rawTitle == null) return this;
 
@@ -237,162 +223,223 @@ public class Menu {
         this.title = ColorUtils.parse(processedTitle);
 
         if (inventory != null && viewer != null) {
-            Player currentViewer = viewer;
-
-            Inventory newInventory = inventoryAdapter.createInventory(size, title);
-
-            for (int i = 0; i < size; i++) {
-                if (inventory.getItem(i) != null) {
-                    newInventory.setItem(i, inventory.getItem(i));
-                }
-            }
-
-            inventory = newInventory;
-            currentViewer.openInventory(inventory);
+            reopenWithNewTitle(player);
         }
 
         return this;
     }
 
+    private void reopenWithNewTitle(Player player) {
+        Inventory newInventory = inventoryAdapter.createInventory(size, title);
+
+        for (int i = 0; i < size; i++) {
+            if (inventory.getItem(i) != null) {
+                newInventory.setItem(i, inventory.getItem(i));
+            }
+        }
+
+        inventory = newInventory;
+        player.openInventory(inventory);
+    }
+
+    // ==================== ACTUALIZACIONES DINÁMICAS ====================
+
+    public Menu enableDynamicUpdates(JavaPlugin plugin, long tickInterval) {
+        this.dynamicUpdates = true;
+        this.plugin = plugin;
+        this.updateInterval = tickInterval;
+        return this;
+    }
+
+    public Menu disableDynamicUpdates() {
+        this.dynamicUpdates = false;
+        cancelAllTasks();
+        return this;
+    }
+
+    private void cancelAllTasks() {
+        if (globalTaskId != -1) {
+            Bukkit.getScheduler().cancelTask(globalTaskId);
+            globalTaskId = -1;
+        }
+
+        itemTaskIds.values().forEach(taskId -> {
+            if (taskId != -1) {
+                Bukkit.getScheduler().cancelTask(taskId);
+            }
+        });
+        itemTaskIds.clear();
+    }
+
+    /**
+     * Actualiza todos los items de forma asíncrona
+     */
+    public CompletableFuture<Void> updateItemsAsync() {
+        if (inventory == null || viewer == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return CompletableFuture.runAsync(() -> {
+            Map<Integer, MenuItem> updatedItems = new HashMap<>();
+
+            for (Map.Entry<Integer, MenuItem> entry : items.entrySet()) {
+                MenuItem item = entry.getValue();
+                if (item.usesPlaceholders()) {
+                    MenuItem cloned = item.clone();
+                    cloned.updatePlaceholders(viewer);
+                    updatedItems.put(entry.getKey(), cloned);
+                }
+            }
+
+            // Actualizar en el hilo principal
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                for (Map.Entry<Integer, MenuItem> entry : updatedItems.entrySet()) {
+                    inventory.setItem(entry.getKey(), entry.getValue().getItemStack());
+                }
+            });
+        });
+    }
+
+    private void updateSingleItem(int slot, MenuItem item) {
+        if (viewer != null && item.usesPlaceholders()) {
+            item.updatePlaceholders(viewer);
+        }
+
+        inventory.setItem(slot, item.getItemStack());
+
+        if (viewer != null && item.needsDynamicUpdate() && plugin != null) {
+            scheduleItemUpdate(slot, item);
+        }
+    }
+
+    private void scheduleItemUpdate(int slot, MenuItem item) {
+        // Cancelar tarea anterior
+        Integer oldTaskId = itemTaskIds.get(slot);
+        if (oldTaskId != null && oldTaskId != -1) {
+            Bukkit.getScheduler().cancelTask(oldTaskId);
+        }
+
+        // Programar nueva tarea
+        int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
+            if (viewer != null && viewer.isOnline() && inventory != null) {
+                item.updatePlaceholders(viewer);
+                inventory.setItem(slot, item.getItemStack());
+            } else {
+                // Cleanup automático
+                Integer currentTaskId = itemTaskIds.remove(slot);
+                if (currentTaskId != null) {
+                    Bukkit.getScheduler().cancelTask(currentTaskId);
+                }
+            }
+        }, item.getUpdateInterval(), item.getUpdateInterval());
+
+        itemTaskIds.put(slot, taskId);
+    }
+
+    // ==================== APERTURA Y CIERRE ====================
+
     public void open(Player player) {
         this.viewer = player;
 
+        // Actualizar título si usa placeholders
         if (usePlaceholdersInTitle) {
             updateTitle(player);
         }
 
+        // Aplicar fillers antes de crear el inventario
+        applyFillers(player);
+
+        // Crear o reutilizar inventario
         if (inventory == null) {
-            inventory = inventoryAdapter.createInventory(size, title);
-
-            for (Map.Entry<Integer, MenuItem> entry : items.entrySet()) {
-                MenuItem item = entry.getValue();
-
-                if (item.usesPlaceholders()) {
-                    item.updatePlaceholders(player);
-                }
-
-                inventory.setItem(entry.getKey(), item.getItemStack());
-            }
-        } else {
-            for (Map.Entry<Integer, MenuItem> entry : items.entrySet()) {
-                MenuItem item = entry.getValue();
-                if (item.usesPlaceholders()) {
-                    item.updatePlaceholders(player);
-                    inventory.setItem(entry.getKey(), item.getItemStack());
-                }
-            }
+            inventory = createOrGetCachedInventory();
         }
 
+        // Poblar inventario
+        populateInventory(player);
+
+        // Abrir y registrar
         player.openInventory(inventory);
         MenuManager.registerOpenMenu(player, this);
 
-        if (dynamicUpdates && plugin != null && taskId == -1) {
-            taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::updateItems, updateInterval, updateInterval);
-        }
+        // Iniciar actualizaciones si están habilitadas
+        startDynamicUpdates();
+    }
 
+    private void populateInventory(Player player) {
         for (Map.Entry<Integer, MenuItem> entry : items.entrySet()) {
             MenuItem item = entry.getValue();
+
+            if (item.usesPlaceholders()) {
+                item.updatePlaceholders(player);
+            }
+
+            inventory.setItem(entry.getKey(), item.getItemStack());
+
             if (item.needsDynamicUpdate() && plugin != null) {
                 scheduleItemUpdate(entry.getKey(), item);
             }
         }
     }
 
-    /**
-     * Se llama cuando se cierra el menú
-     * @param player Jugador que cerró el menú
-     */
-    void onClose(Player player) {
-        if (taskId != -1) {
-            Bukkit.getScheduler().cancelTask(taskId);
-            taskId = -1;
+    private void startDynamicUpdates() {
+        if (dynamicUpdates && plugin != null && globalTaskId == -1) {
+            globalTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(
+                    plugin,
+                    () -> updateItemsAsync(),
+                    updateInterval,
+                    updateInterval
+            );
         }
-
-        for (int taskId : itemTaskIds.values()) {
-            Bukkit.getScheduler().cancelTask(taskId);
-        }
-        itemTaskIds.clear();
-
-        this.viewer = null;
     }
 
-    /**
-     * Obtiene un ítem por su posición
-     * @param slot Posición del ítem
-     * @return El ítem en esa posición o null si no hay
-     */
+    void onClose(Player player) {
+        cancelAllTasks();
+        this.viewer = null;
+
+        if (closeHandler != null) {
+            closeHandler.accept(player);
+        }
+    }
+
+    // ==================== GETTERS ====================
+
     public MenuItem getItem(int slot) {
         return items.get(slot);
     }
 
     public Map<Integer, MenuItem> getItems() {
-        return items;
+        return new HashMap<>(items);
     }
 
-    /**
-     * Obtiene el manejador de cierre
-     * @return Manejador de cierre
-     */
     public Consumer<Player> getCloseHandler() {
         return closeHandler;
     }
 
-    /**
-     * Obtiene el menú de retorno
-     * @return Menú de retorno
-     */
     public Menu getReturnMenu() {
         return returnMenu;
     }
 
-    /**
-     * Llena los espacios vacíos con un ítem decorativo
-     * @param filler Ítem para rellenar espacios vacíos
-     * @return El mismo menú (para encadenamiento)
-     */
-    public Menu fillEmptySlots(MenuItem filler) {
-        for (int i = 0; i < size; i++) {
-            if (!items.containsKey(i)) {
-                setItem(i, filler);
-            }
-        }
-        return this;
-    }
-
-    /**
-     * Crea un borde alrededor del menú
-     * @param borderItem Ítem para el borde
-     * @return El mismo menú (para encadenamiento)
-     */
-    public Menu createBorder(MenuItem borderItem) {
-        int rows = size / 9;
-
-        for (int i = 0; i < 9; i++) {
-            setItem(i, borderItem);
-            setItem(size - 9 + i, borderItem);
-        }
-
-        for (int i = 1; i < rows - 1; i++) {
-            setItem(i * 9, borderItem);
-            setItem(i * 9 + 8, borderItem);
-        }
-
-        return this;
-    }
-
-    /**
-     * Comprueba si PlaceholderAPI está instalado y disponible
-     * @return true si PlaceholderAPI está disponible
-     */
-    public static boolean isPlaceholderAPIAvailable() {
-        return Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null;
-    }
-
-    /**
-     * Obtiene el jugador que está viendo el menú
-     * @return Jugador que ve el menú
-     */
     public Player getViewer() {
         return viewer;
+    }
+
+    // ==================== UTILIDADES ====================
+
+    /**
+     * Limpia el cache de inventarios
+     */
+    public static void clearCache() {
+        INVENTORY_CACHE.clear();
+    }
+
+    /**
+     * Obtiene estadísticas del cache
+     */
+    public static Map<String, Object> getCacheStats() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("size", INVENTORY_CACHE.size());
+        stats.put("maxSize", MAX_CACHE_SIZE);
+        stats.put("hitRate", "N/A"); // Podrías implementar un contador si lo necesitas
+        return stats;
     }
 }

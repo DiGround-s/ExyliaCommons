@@ -171,7 +171,7 @@ public class MenuBuilder {
         ConfigurationSection fillerSection = menuSection.getConfigurationSection("filler");
         if (fillerSection != null) {
             MenuItem fillerItem = buildMenuItem(fillerSection, player);
-            paginationMenu.setFillerItem(fillerItem);
+            paginationMenu.setGlobalFiller(fillerItem);
         }
 
         return paginationMenu;

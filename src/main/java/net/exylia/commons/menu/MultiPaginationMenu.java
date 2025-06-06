@@ -5,16 +5,18 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
- * Menú con múltiples secciones paginables independientes
+ * Menú optimizado con múltiples secciones paginables independientes
  */
 public class MultiPaginationMenu extends Menu {
 
     /**
-     * Representa una sección paginable dentro del menú
+     * Sección paginable optimizada
      */
     public static class PaginationSection {
         private final String name;
@@ -28,21 +30,19 @@ public class MultiPaginationMenu extends Menu {
         private int previousButtonSlot;
         private int nextButtonSlot;
 
-        // Filler para esta sección
+        // Configuración de la sección
         private MenuItem fillerItem;
-
-        // Callback cuando se selecciona un item
         private BiConsumer<MenuClickInfo, Integer> onItemSelect;
-
-        // Item seleccionado actualmente
         private Integer selectedIndex = null;
         private MenuItem selectedItemTemplate;
 
         public PaginationSection(String name, int[] slots) {
             this.name = name;
             this.items = new ArrayList<>();
-            this.slots = slots;
+            this.slots = slots.clone(); // Defensive copy
         }
+
+        // ==================== CONFIGURACIÓN DE ITEMS ====================
 
         public PaginationSection addItem(MenuItem item) {
             items.add(item);
@@ -53,6 +53,41 @@ public class MultiPaginationMenu extends Menu {
             this.items.addAll(items);
             return this;
         }
+
+        public PaginationSection setItems(List<MenuItem> newItems) {
+            items.clear();
+            items.addAll(newItems);
+            currentPage = 1;
+            selectedIndex = null;
+            return this;
+        }
+
+        public PaginationSection clearItems() {
+            items.clear();
+            currentPage = 1;
+            selectedIndex = null;
+            return this;
+        }
+
+        public PaginationSection removeItem(int index) {
+            if (index >= 0 && index < items.size()) {
+                items.remove(index);
+                adjustSelectionAfterRemoval(index);
+            }
+            return this;
+        }
+
+        private void adjustSelectionAfterRemoval(int removedIndex) {
+            if (selectedIndex != null) {
+                if (selectedIndex.equals(removedIndex)) {
+                    selectedIndex = null;
+                } else if (selectedIndex > removedIndex) {
+                    selectedIndex--;
+                }
+            }
+        }
+
+        // ==================== CONFIGURACIÓN DE NAVEGACIÓN ====================
 
         public PaginationSection setPreviousButton(MenuItem button, int slot) {
             this.previousButton = button;
@@ -71,6 +106,8 @@ public class MultiPaginationMenu extends Menu {
             return this;
         }
 
+        // ==================== CONFIGURACIÓN DE SELECCIÓN ====================
+
         public PaginationSection setOnItemSelect(BiConsumer<MenuClickInfo, Integer> handler) {
             this.onItemSelect = handler;
             return this;
@@ -85,13 +122,16 @@ public class MultiPaginationMenu extends Menu {
             this.selectedIndex = index;
         }
 
-        public Integer getSelectedIndex() {
-            return selectedIndex;
-        }
+        // ==================== GETTERS ====================
 
+        public String getName() { return name; }
+        public Integer getSelectedIndex() { return selectedIndex; }
         public int getTotalPages() {
             return Math.max(1, (int) Math.ceil((double) items.size() / slots.length));
         }
+//        public int getItemCount() { return items.size; }
+        public List<MenuItem> getAllItems() { return new ArrayList<>(items); }
+        public int[] getSlots() { return slots.clone(); }
 
         public List<MenuItem> getItemsForPage(int page) {
             int start = (page - 1) * slots.length;
@@ -101,145 +141,81 @@ public class MultiPaginationMenu extends Menu {
                 return new ArrayList<>();
             }
 
-            return items.subList(start, end);
+            return new ArrayList<>(items.subList(start, end));
+        }
+
+        public MenuItem getItem(int index) {
+            return (index >= 0 && index < items.size()) ? items.get(index) : null;
         }
 
         public boolean isItemSelected(int globalIndex) {
             return selectedIndex != null && selectedIndex == globalIndex;
         }
 
-        public MenuItem getItem(int index) {
-            if (index >= 0 && index < items.size()) {
-                return items.get(index);
-            }
-            return null;
-        }
+        // ==================== GETTERS INTERNOS ====================
 
-        public int getItemCount() {
-            return items.size();
-        }
-
-        /**
-         * Limpia todos los items de la sección
-         * @return La misma sección para encadenamiento
-         */
-        public PaginationSection clearItems() {
-            items.clear();
-            currentPage = 1; // Resetear a la primera página
-            selectedIndex = null; // Limpiar selección
-            return this;
-        }
-
-        /**
-         * Reemplaza todos los items con una nueva lista
-         * @param newItems Nueva lista de items
-         * @return La misma sección para encadenamiento
-         */
-        public PaginationSection setItems(List<MenuItem> newItems) {
-            items.clear();
-            items.addAll(newItems);
-            currentPage = 1; // Resetear a la primera página
-            selectedIndex = null; // Limpiar selección
-            return this;
-        }
-
-        /**
-         * Obtiene una copia de todos los items en la sección
-         * @return Lista de todos los items
-         */
-        public List<MenuItem> getAllItems() {
-            return new ArrayList<>(items);
-        }
-
-        /**
-         * Remueve un item específico por índice
-         * @param index Índice del item a remover
-         * @return La misma sección para encadenamiento
-         */
-        public PaginationSection removeItem(int index) {
-            if (index >= 0 && index < items.size()) {
-                items.remove(index);
-                // Ajustar selección si es necesario
-                if (selectedIndex != null && selectedIndex == index) {
-                    selectedIndex = null;
-                } else if (selectedIndex != null && selectedIndex > index) {
-                    selectedIndex--;
-                }
-            }
-            return this;
-        }
+        MenuItem getPreviousButton() { return previousButton; }
+        MenuItem getNextButton() { return nextButton; }
+        int getPreviousButtonSlot() { return previousButtonSlot; }
+        int getNextButtonSlot() { return nextButtonSlot; }
+        MenuItem getFillerItem() { return fillerItem; }
+        BiConsumer<MenuClickInfo, Integer> getOnItemSelect() { return onItemSelect; }
+        MenuItem getSelectedItemTemplate() { return selectedItemTemplate; }
     }
 
-    private final Map<String, PaginationSection> sections = new LinkedHashMap<>();
-    private final Map<Player, Map<String, Integer>> playerPages = new HashMap<>();
-    private final Map<Player, Map<String, Map<Integer, Integer>>> playerItemTasks = new HashMap<>();
+    // ==================== PROPIEDADES DEL MENÚ ====================
 
-    // Callback global cuando se actualiza cualquier sección
+    private final Map<String, PaginationSection> sections = new LinkedHashMap<>();
+    private final Map<Player, Map<String, Integer>> playerPages = new ConcurrentHashMap<>();
+    private final Map<Player, Map<String, Map<Integer, Integer>>> playerItemTasks = new ConcurrentHashMap<>();
+
     private BiConsumer<String, Integer> onSectionUpdate;
+    private Consumer<Player> externalCloseHandler;
 
     public MultiPaginationMenu(String title, int rows) {
         super(title, rows);
         super.setCloseHandler(this::onPlayerCloseMenu);
     }
 
-    /**
-     * Añade una nueva sección paginable
-     * @param name Nombre único de la sección
-     * @param slots Slots donde se mostrarán los items
-     * @return La sección creada
-     */
+    // ==================== CONFIGURACIÓN DE SECCIONES ====================
+
     public PaginationSection addSection(String name, int... slots) {
         PaginationSection section = new PaginationSection(name, slots);
         sections.put(name, section);
         return section;
     }
 
-    /**
-     * Obtiene una sección por nombre
-     * @param name Nombre de la sección
-     * @return La sección o null si no existe
-     */
     public PaginationSection getSection(String name) {
         return sections.get(name);
     }
 
-    /**
-     * Establece un callback global cuando se actualiza alguna sección
-     * @param callback Callback que recibe el nombre de la sección y la página actual
-     * @return El mismo menú
-     */
     public MultiPaginationMenu setOnSectionUpdate(BiConsumer<String, Integer> callback) {
         this.onSectionUpdate = callback;
         return this;
     }
 
+    // ==================== APERTURA Y ACTUALIZACIÓN ====================
+
     @Override
     public void open(Player player) {
         cleanupPlayerResources(player);
-
-        // Inicializar páginas del jugador si no existen
-        if (!playerPages.containsKey(player)) {
-            Map<String, Integer> pages = new HashMap<>();
-            for (String sectionName : sections.keySet()) {
-                pages.put(sectionName, 1);
+        initializePlayerPages(player);
+        updateMenuAsync(player).thenRun(() -> {
+            super.open(player);
+            if (super.dynamicUpdates && super.plugin != null) {
+                scheduleItemUpdatesAsync(player);
             }
+        });
+    }
+
+    private void initializePlayerPages(Player player) {
+        if (!playerPages.containsKey(player)) {
+            Map<String, Integer> pages = new ConcurrentHashMap<>();
+            sections.keySet().forEach(sectionName -> pages.put(sectionName, 1));
             playerPages.put(player, pages);
-        }
-
-        updateMenu(player);
-        super.open(player);
-
-        if (super.dynamicUpdates && super.plugin != null) {
-            scheduleItemUpdates(player);
         }
     }
 
-    /**
-     * Actualiza una sección específica para un jugador
-     * @param player Jugador
-     * @param sectionName Nombre de la sección
-     * @param page Nueva página
-     */
     public void updateSection(Player player, String sectionName, int page) {
         PaginationSection section = sections.get(sectionName);
         if (section == null) return;
@@ -251,167 +227,175 @@ public class MultiPaginationMenu extends Menu {
         page = Math.max(1, Math.min(page, maxPages));
         pages.put(sectionName, page);
 
-        updateMenu(player);
-
-        if (onSectionUpdate != null) {
-            onSectionUpdate.accept(sectionName, page);
-        }
+        int finalPage = page;
+        updateMenuAsync(player).thenRun(() -> {
+            if (onSectionUpdate != null) {
+                onSectionUpdate.accept(sectionName, finalPage);
+            }
+        });
     }
 
-    private MenuItem globalFillerItem = null;
+    private CompletableFuture<Void> updateMenuAsync(Player player) {
+        return CompletableFuture.runAsync(() -> {
+            Map<String, Integer> pages = playerPages.get(player);
+            if (pages == null) return;
 
-    public MultiPaginationMenu setGlobalFiller(MenuItem filler) {
-        this.globalFillerItem = filler;
-        return this;
-    }
+            // Aplicar fillers globales primero
+            super.applyFillers(player);
 
-    private void updateMenu(Player player) {
-        Map<String, Integer> pages = playerPages.get(player);
-        if (pages == null) return;
+            // Procesar cada sección
+            sections.forEach((sectionName, section) -> {
+                int currentPage = pages.getOrDefault(sectionName, 1);
+                processSectionForPlayer(player, section, currentPage);
+            });
 
-        // PASO 1: Limpiar todos los items
-        super.items.clear();
-
-        // PASO 2: Aplicar filler global primero (capa base)
-        if (globalFillerItem != null) {
-            for (int i = 0; i < super.size; i++) {
-                super.setItem(i, globalFillerItem.clone());
-            }
-        }
-
-        // PASO 3: Procesar cada sección (sobrescribir donde sea necesario)
-        for (Map.Entry<String, PaginationSection> entry : sections.entrySet()) {
-            String sectionName = entry.getKey();
-            PaginationSection section = entry.getValue();
-            int currentPage = pages.getOrDefault(sectionName, 1);
-
-            // PASO 3a: Aplicar filler de sección (sobrescribe el global en estos slots)
-            if (section.fillerItem != null) {
-                for (int slot : section.slots) {
-                    super.setItem(slot, section.fillerItem.clone());
-                }
-            }
-
-            // PASO 3b: Colocar items de la página actual (sobrescribe los fillers)
-            List<MenuItem> pageItems = section.getItemsForPage(currentPage);
-            for (int i = 0; i < pageItems.size() && i < section.slots.length; i++) {
-                int slot = section.slots[i];
-                MenuItem item = pageItems.get(i).clone();
-
-                // Calcular el índice global del item
-                int globalIndex = (currentPage - 1) * section.slots.length + i;
-
-                // Si este item está seleccionado y hay un template especial, usarlo
-                if (section.isItemSelected(globalIndex) && section.selectedItemTemplate != null) {
-                    MenuItem selectedItem = section.selectedItemTemplate.clone();
-                    if (selectedItem.usesPlaceholders()) {
-                        selectedItem.updatePlaceholders(player);
-                    }
-                    item = selectedItem;
-                }
-
-                if (item.usesPlaceholders()) {
-                    item.updatePlaceholders(player);
-                }
-
-                // Configurar el click handler
-                final int finalGlobalIndex = globalIndex;
-                final String finalSectionName = sectionName;
-                Consumer<MenuClickInfo> originalHandler = item.getClickHandler();
-
-                item.setClickHandler(clickInfo -> {
-                    if (section.onItemSelect != null) {
-                        section.onItemSelect.accept(clickInfo, finalGlobalIndex);
-                    }
-                    section.setSelectedIndex(finalGlobalIndex);
-                    updateMenu(player);
-                    if (originalHandler != null) {
-                        originalHandler.accept(clickInfo);
-                    }
+        }).thenRun(() -> {
+            // Actualizar inventario en el hilo principal
+            if (super.getViewer() == player && super.inventory != null) {
+                Bukkit.getScheduler().runTask(super.plugin, () -> {
+                    super.items.forEach((slot, item) ->
+                            super.inventory.setItem(slot, item.getItemStack())
+                    );
                 });
-
-                // Colocar el item (sobrescribe filler de sección o global)
-                super.setItem(slot, item);
             }
+        });
+    }
 
-            // PASO 3c: Colocar botones de navegación
-            if (currentPage > 1 && section.previousButton != null) {
-                MenuItem prevButton = section.previousButton.clone();
-                if (prevButton.usesPlaceholders()) {
-                    prevButton.updatePlaceholders(player);
-                }
-                prevButton.setClickHandler(info -> updateSection(player, sectionName, currentPage - 1));
-                super.setItem(section.previousButtonSlot, prevButton);
-            }
+    private void processSectionForPlayer(Player player, PaginationSection section, int currentPage) {
+        // Aplicar filler de sección
+        applySectionFiller(player, section);
 
-            if (currentPage < section.getTotalPages() && section.nextButton != null) {
-                MenuItem nextButton = section.nextButton.clone();
-                if (nextButton.usesPlaceholders()) {
-                    nextButton.updatePlaceholders(player);
-                }
-                nextButton.setClickHandler(info -> updateSection(player, sectionName, currentPage + 1));
-                super.setItem(section.nextButtonSlot, nextButton);
-            }
-        }
+        // Colocar items de la página
+        placeSectionItems(player, section, currentPage);
 
-        // Si el inventario ya está abierto, actualizar los items
-        if (super.getViewer() == player) {
-            for (Map.Entry<Integer, MenuItem> entry : super.items.entrySet()) {
-                super.inventory.setItem(entry.getKey(), entry.getValue().getItemStack());
+        // Colocar botones de navegación
+        placeSectionNavigation(player, section, currentPage);
+    }
+
+    private void applySectionFiller(Player player, PaginationSection section) {
+        if (section.getFillerItem() == null) return;
+
+        for (int slot : section.getSlots()) {
+            MenuItem filler = section.getFillerItem().clone();
+            if (filler.usesPlaceholders()) {
+                filler.updatePlaceholders(player);
             }
+            super.items.put(slot, filler);
         }
     }
 
-    /**
-     * Programa las actualizaciones de items dinámicos
-     */
-    private void scheduleItemUpdates(Player player) {
-        if (!playerItemTasks.containsKey(player)) {
-            playerItemTasks.put(player, new HashMap<>());
-        }
+    private void placeSectionItems(Player player, PaginationSection section, int currentPage) {
+        List<MenuItem> pageItems = section.getItemsForPage(currentPage);
+        int[] slots = section.getSlots();
 
-        Map<String, Map<Integer, Integer>> sectionTasks = playerItemTasks.get(player);
+        for (int i = 0; i < pageItems.size() && i < slots.length; i++) {
+            int slot = slots[i];
+            MenuItem item = pageItems.get(i).clone();
+            int globalIndex = (currentPage - 1) * slots.length + i;
 
-        for (Map.Entry<String, PaginationSection> sectionEntry : sections.entrySet()) {
-            String sectionName = sectionEntry.getKey();
-            PaginationSection section = sectionEntry.getValue();
-
-            if (!sectionTasks.containsKey(sectionName)) {
-                sectionTasks.put(sectionName, new HashMap<>());
+            // Aplicar template de selección si es necesario
+            if (section.isItemSelected(globalIndex) && section.getSelectedItemTemplate() != null) {
+                item = section.getSelectedItemTemplate().clone();
             }
 
-            Map<Integer, Integer> itemTasks = sectionTasks.get(sectionName);
-
-            for (int slot : section.slots) {
-                MenuItem item = super.getItem(slot);
-                if (item != null && item.needsDynamicUpdate() && item.usesPlaceholders()) {
-                    final int finalSlot = slot;
-
-                    int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(super.plugin, () -> {
-                        if (player.isOnline() && super.getViewer() == player) {
-                            MenuItem currentItem = super.getItem(finalSlot);
-                            if (currentItem != null) {
-                                currentItem.updatePlaceholders(player);
-                                super.inventory.setItem(finalSlot, currentItem.getItemStack());
-                            }
-                        } else {
-                            Integer existingTaskId = itemTasks.get(finalSlot);
-                            if (existingTaskId != null) {
-                                Bukkit.getScheduler().cancelTask(existingTaskId);
-                            }
-                            itemTasks.remove(finalSlot);
-                        }
-                    }, item.getUpdateInterval(), item.getUpdateInterval());
-
-                    itemTasks.put(slot, taskId);
-                }
+            if (item.usesPlaceholders()) {
+                item.updatePlaceholders(player);
             }
+
+            // Configurar click handler
+            setupItemClickHandler(item, section, globalIndex);
+            super.items.put(slot, item);
         }
     }
 
-    /**
-     * Limpia recursos cuando se cierra el menú
-     */
+    private void setupItemClickHandler(MenuItem item, PaginationSection section, int globalIndex) {
+        Consumer<MenuClickInfo> originalHandler = item.getClickHandler();
+
+        item.setClickHandler(clickInfo -> {
+            if (section.getOnItemSelect() != null) {
+                section.getOnItemSelect().accept(clickInfo, globalIndex);
+            }
+            section.setSelectedIndex(globalIndex);
+            updateMenuAsync(clickInfo.player());
+
+            if (originalHandler != null) {
+                originalHandler.accept(clickInfo);
+            }
+        });
+    }
+
+    private void placeSectionNavigation(Player player, PaginationSection section, int currentPage) {
+        String sectionName = section.getName();
+
+        // Botón anterior
+        if (currentPage > 1 && section.getPreviousButton() != null) {
+            MenuItem prevButton = section.getPreviousButton().clone();
+            if (prevButton.usesPlaceholders()) {
+                prevButton.updatePlaceholders(player);
+            }
+            prevButton.setClickHandler(info -> updateSection(player, sectionName, currentPage - 1));
+            super.items.put(section.getPreviousButtonSlot(), prevButton);
+        }
+
+        // Botón siguiente
+        if (currentPage < section.getTotalPages() && section.getNextButton() != null) {
+            MenuItem nextButton = section.getNextButton().clone();
+            if (nextButton.usesPlaceholders()) {
+                nextButton.updatePlaceholders(player);
+            }
+            nextButton.setClickHandler(info -> updateSection(player, sectionName, currentPage + 1));
+            super.items.put(section.getNextButtonSlot(), nextButton);
+        }
+    }
+
+    // ==================== ACTUALIZACIONES DINÁMICAS ====================
+
+    private CompletableFuture<Void> scheduleItemUpdatesAsync(Player player) {
+        return CompletableFuture.runAsync(() -> {
+            if (!playerItemTasks.containsKey(player)) {
+                playerItemTasks.put(player, new ConcurrentHashMap<>());
+            }
+
+            Map<String, Map<Integer, Integer>> sectionTasks = playerItemTasks.get(player);
+
+            sections.forEach((sectionName, section) -> {
+                if (!sectionTasks.containsKey(sectionName)) {
+                    sectionTasks.put(sectionName, new ConcurrentHashMap<>());
+                }
+
+                Map<Integer, Integer> itemTasks = sectionTasks.get(sectionName);
+
+                for (int slot : section.getSlots()) {
+                    MenuItem item = super.getItem(slot);
+                    if (item != null && item.needsDynamicUpdate() && item.usesPlaceholders()) {
+                        scheduleItemUpdate(player, slot, item, itemTasks);
+                    }
+                }
+            });
+        });
+    }
+
+    private void scheduleItemUpdate(Player player, int slot, MenuItem item, Map<Integer, Integer> itemTasks) {
+        int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(super.plugin, () -> {
+            if (player.isOnline() && super.getViewer() == player) {
+                MenuItem currentItem = super.getItem(slot);
+                if (currentItem != null) {
+                    currentItem.updatePlaceholders(player);
+                    super.inventory.setItem(slot, currentItem.getItemStack());
+                }
+            } else {
+                Integer existingTaskId = itemTasks.remove(slot);
+                if (existingTaskId != null) {
+                    Bukkit.getScheduler().cancelTask(existingTaskId);
+                }
+            }
+        }, item.getUpdateInterval(), item.getUpdateInterval());
+
+        itemTasks.put(slot, taskId);
+    }
+
+    // ==================== LIMPIEZA ====================
+
     private void onPlayerCloseMenu(Player player) {
         cleanupPlayerResources(player);
         if (externalCloseHandler != null) {
@@ -419,54 +403,33 @@ public class MultiPaginationMenu extends Menu {
         }
     }
 
-    /**
-     * Limpia todos los recursos asociados a un jugador
-     */
     private void cleanupPlayerResources(Player player) {
         playerPages.remove(player);
 
-        if (playerItemTasks.containsKey(player)) {
-            Map<String, Map<Integer, Integer>> sectionTasks = playerItemTasks.get(player);
-            for (Map<Integer, Integer> itemTasks : sectionTasks.values()) {
-                for (Integer taskId : itemTasks.values()) {
-                    if (taskId != null && taskId != -1) {
-                        Bukkit.getScheduler().cancelTask(taskId);
-                    }
-                }
-            }
-            playerItemTasks.remove(player);
+        Map<String, Map<Integer, Integer>> sectionTasks = playerItemTasks.remove(player);
+        if (sectionTasks != null) {
+            sectionTasks.values().forEach(itemTasks ->
+                    itemTasks.values().forEach(taskId -> {
+                        if (taskId != null && taskId != -1) {
+                            Bukkit.getScheduler().cancelTask(taskId);
+                        }
+                    })
+            );
         }
     }
 
-    /**
-     * Obtiene la página actual de una sección para un jugador
-     * @param player Jugador
-     * @param sectionName Nombre de la sección
-     * @return Página actual (1 si no está definida)
-     */
+    // ==================== UTILIDADES PÚBLICAS ====================
+
     public int getCurrentPage(Player player, String sectionName) {
         Map<String, Integer> pages = playerPages.get(player);
-        if (pages != null) {
-            return pages.getOrDefault(sectionName, 1);
-        }
-        return 1;
+        return pages != null ? pages.getOrDefault(sectionName, 1) : 1;
     }
 
-    /**
-     * Obtiene el índice del item seleccionado en una sección
-     * @param sectionName Nombre de la sección
-     * @return Índice del item seleccionado o null
-     */
     public Integer getSelectedIndex(String sectionName) {
         PaginationSection section = sections.get(sectionName);
         return section != null ? section.getSelectedIndex() : null;
     }
 
-    /**
-     * Obtiene el item seleccionado en una sección
-     * @param sectionName Nombre de la sección
-     * @return Item seleccionado o null
-     */
     public MenuItem getSelectedItem(String sectionName) {
         PaginationSection section = sections.get(sectionName);
         if (section != null && section.getSelectedIndex() != null) {
@@ -474,9 +437,12 @@ public class MultiPaginationMenu extends Menu {
         }
         return null;
     }
-    private Consumer<Player> externalCloseHandler = null;
 
+    public Set<String> getSectionNames() {
+        return new HashSet<>(sections.keySet());
+    }
 
+    // ==================== OVERRIDE MÉTODOS DE ENCADENAMIENTO ====================
 
     @Override
     public MultiPaginationMenu setCloseHandler(Consumer<Player> closeHandler) {
@@ -501,17 +467,29 @@ public class MultiPaginationMenu extends Menu {
     public MultiPaginationMenu disableDynamicUpdates() {
         super.disableDynamicUpdates();
 
-        for (Map<String, Map<Integer, Integer>> sectionTasks : playerItemTasks.values()) {
-            for (Map<Integer, Integer> itemTasks : sectionTasks.values()) {
-                for (Integer taskId : itemTasks.values()) {
-                    if (taskId != null && taskId != -1) {
-                        Bukkit.getScheduler().cancelTask(taskId);
-                    }
-                }
-            }
-        }
+        playerItemTasks.values().forEach(sectionTasks ->
+                sectionTasks.values().forEach(itemTasks ->
+                        itemTasks.values().forEach(taskId -> {
+                            if (taskId != null && taskId != -1) {
+                                Bukkit.getScheduler().cancelTask(taskId);
+                            }
+                        })
+                )
+        );
         playerItemTasks.clear();
 
+        return this;
+    }
+
+    @Override
+    public MultiPaginationMenu setGlobalFiller(MenuItem filler) {
+        super.setGlobalFiller(filler);
+        return this;
+    }
+
+    @Override
+    public MultiPaginationMenu setBorderFiller(MenuItem borderItem) {
+        super.setBorderFiller(borderItem);
         return this;
     }
 }

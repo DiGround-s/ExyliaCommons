@@ -96,7 +96,6 @@ public class MenuManager implements Listener {
 
         PaginationMenu paginationMenu = openPaginationMenus.get(player.getUniqueId());
         if (paginationMenu != null) {
-            paginationMenu.cleanup(player);
             openPaginationMenus.remove(player.getUniqueId());
         }
 
