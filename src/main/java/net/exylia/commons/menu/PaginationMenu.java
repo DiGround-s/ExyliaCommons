@@ -9,6 +9,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static net.exylia.commons.ExyliaPlugin.isPlaceholderAPIEnabled;
 
@@ -251,6 +252,46 @@ public class PaginationMenu extends Menu {
         }, item.getUpdateInterval(), item.getUpdateInterval());
 
         itemTasks.put(slot, taskId);
+    }
+
+    /**
+     * Actualiza un item de paginación en tiempo real
+     * @param itemIndex Índice en la lista de paginationItems
+     * @param updatedItem Item actualizado
+     */
+    public void updatePaginationItemInPlace(int itemIndex, MenuItem updatedItem) {
+        if (itemIndex < 0 || itemIndex >= paginationItems.size()) return;
+
+        // Actualizar en la lista de items
+        paginationItems.set(itemIndex, updatedItem);
+
+        // Si el item está visible en la página actual, actualizarlo
+        Player currentViewer = getViewer();
+        if (currentViewer != null) {
+            int currentPage = getCurrentPage(currentViewer);
+            int startIndex = (currentPage - 1) * maxItemsPerPage;
+            int endIndex = Math.min(startIndex + maxItemsPerPage, paginationItems.size());
+
+            // Verificar si el item está en la página actual
+            if (itemIndex >= startIndex && itemIndex < endIndex) {
+                int slotIndex = itemIndex - startIndex;
+                if (slotIndex < itemSlots.length) {
+                    int slot = itemSlots[slotIndex];
+                    updateItemInPlace(slot, updatedItem);
+                }
+            }
+        }
+    }
+
+    /**
+     * Actualiza un item de paginación usando su función click handler para preservar la funcionalidad
+     */
+    public void updatePaginationItemInPlace(int itemIndex, Function<MenuItem, MenuItem> itemBuilder) {
+        if (itemIndex >= 0 && itemIndex < paginationItems.size()) {
+            MenuItem currentItem = paginationItems.get(itemIndex);
+            MenuItem updatedItem = itemBuilder.apply(currentItem);
+            updatePaginationItemInPlace(itemIndex, updatedItem);
+        }
     }
 
     // ==================== LIMPIEZA Y CIERRE ====================

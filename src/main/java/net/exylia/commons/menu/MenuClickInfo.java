@@ -3,6 +3,8 @@ package net.exylia.commons.menu;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 
+import java.util.function.Function;
+
 /**
  * Información sobre un clic en un ítem de menú
  */
@@ -97,5 +99,28 @@ public record MenuClickInfo(Player player, ClickType clickType, int slot, Menu m
      */
     public boolean isMiddleClick() {
         return clickType == ClickType.MIDDLE;
+    }
+
+    /**
+     * Actualiza el item en este slot inmediatamente
+     */
+    public void updateThisItem(MenuItem newItem) {
+        menu.updateItemInPlace(slot, newItem);
+    }
+
+    /**
+     * Actualiza el item usando un builder function
+     */
+    public void updateThisItem(Function<MenuItem, MenuItem> itemBuilder) {
+        menu.updateItemInPlace(slot, itemBuilder);
+    }
+
+    /**
+     * Para PaginationMenu - actualiza un item de paginación por índice
+     */
+    public void updatePaginationItem(int itemIndex, MenuItem newItem) {
+        if (menu instanceof PaginationMenu) {
+            ((PaginationMenu) menu).updatePaginationItemInPlace(itemIndex, newItem);
+        }
     }
 }

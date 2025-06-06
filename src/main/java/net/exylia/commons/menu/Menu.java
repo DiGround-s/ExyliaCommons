@@ -14,6 +14,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static net.exylia.commons.ExyliaPlugin.isPlaceholderAPIEnabled;
 
@@ -441,5 +442,67 @@ public class Menu {
         stats.put("maxSize", MAX_CACHE_SIZE);
         stats.put("hitRate", "N/A"); // Podrías implementar un contador si lo necesitas
         return stats;
+    }
+
+    /**
+     * Actualiza un item específico en tiempo real sin reabrir el menú
+     * @param slot Slot del item a actualizar
+     * @param updatedItem Nuevo item actualizado
+     */
+    public void updateItemInPlace(int slot, MenuItem updatedItem) {
+        if (slot < 0 || slot >= size || inventory == null || viewer == null) return;
+
+        // Actualizar en el mapa de items
+        items.put(slot, updatedItem);
+
+        // Procesar placeholders si es necesario
+        if (updatedItem.usesPlaceholders()) {
+            updatedItem.updatePlaceholders(viewer);
+        }
+
+        // Actualizar inmediatamente en el inventario visible
+        inventory.setItem(slot, updatedItem.getItemStack());
+
+        // Si el item necesita actualizaciones dinámicas, reprogramar
+        if (updatedItem.needsDynamicUpdate() && plugin != null) {
+            scheduleItemUpdate(slot, updatedItem);
+        }
+    }
+
+    /**
+     * Actualiza un item usando un builder/factory function
+     * @param slot Slot del item
+     * @param itemBuilder Function que recibe el item actual y retorna el actualizado
+     */
+    public void updateItemInPlace(int slot, Function<MenuItem, MenuItem> itemBuilder) {
+        MenuItem currentItem = items.get(slot);
+        if (currentItem != null) {
+            MenuItem updatedItem = itemBuilder.apply(currentItem);
+            updateItemInPlace(slot, updatedItem);
+        }
+    }
+
+    /**
+     * Actualiza múltiples items de forma eficiente
+     * @param updates Mapa de slot -> item actualizado
+     */
+    public void updateItemsInPlace(Map<Integer, MenuItem> updates) {
+        if (inventory == null || viewer == null) return;
+
+        updates.forEach((slot, item) -> {
+            if (slot >= 0 && slot < size) {
+                items.put(slot, item);
+
+                if (item.usesPlaceholders()) {
+                    item.updatePlaceholders(viewer);
+                }
+
+                inventory.setItem(slot, item.getItemStack());
+
+                if (item.needsDynamicUpdate() && plugin != null) {
+                    scheduleItemUpdate(slot, item);
+                }
+            }
+        });
     }
 }
