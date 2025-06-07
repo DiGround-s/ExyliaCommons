@@ -129,7 +129,7 @@ public class MultiPaginationMenu extends Menu {
         public int getTotalPages() {
             return Math.max(1, (int) Math.ceil((double) items.size() / slots.length));
         }
-//        public int getItemCount() { return items.size; }
+        public int getItemCount() { return items.size(); }
         public List<MenuItem> getAllItems() { return new ArrayList<>(items); }
         public int[] getSlots() { return slots.clone(); }
 
@@ -198,14 +198,25 @@ public class MultiPaginationMenu extends Menu {
 
     @Override
     public void open(Player player) {
-        cleanupPlayerResources(player);
-        initializePlayerPages(player);
-        updateMenuAsync(player).thenRun(() -> {
+        try {
+            cleanupPlayerResources(player);
+            initializePlayerPages(player);
+
+            // Primero abrimos el inventario en el hilo principal
             super.open(player);
-            if (super.dynamicUpdates && super.plugin != null) {
-                scheduleItemUpdatesAsync(player);
-            }
-        });
+
+            updateMenuAsync(player).thenRun(() -> {
+                if (super.dynamicUpdates && super.plugin != null) {
+                    scheduleItemUpdatesAsync(player);
+                }
+            }).exceptionally(throwable -> {
+                throwable.printStackTrace();
+                return null;
+            });
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void initializePlayerPages(Player player) {
@@ -237,50 +248,85 @@ public class MultiPaginationMenu extends Menu {
 
     private CompletableFuture<Void> updateMenuAsync(Player player) {
         return CompletableFuture.runAsync(() -> {
-            Map<String, Integer> pages = playerPages.get(player);
-            if (pages == null) return;
+            try {
+                Map<String, Integer> pages = playerPages.get(player);
+                if (pages == null) return;
 
-            // Aplicar fillers globales primero
-            super.applyFillers(player);
+                // Aplicar fillers globales primero
+                super.applyFillers(player);
 
-            // Procesar cada sección
-            sections.forEach((sectionName, section) -> {
-                int currentPage = pages.getOrDefault(sectionName, 1);
-                processSectionForPlayer(player, section, currentPage);
-            });
-
-        }).thenRun(() -> {
-            // Actualizar inventario en el hilo principal
-            if (super.getViewer() == player && super.inventory != null) {
-                Bukkit.getScheduler().runTask(super.plugin, () -> {
-                    super.items.forEach((slot, item) ->
-                            super.inventory.setItem(slot, item.getItemStack())
-                    );
+                // Procesar cada sección
+                sections.forEach((sectionName, section) -> {
+                    int currentPage = pages.getOrDefault(sectionName, 1);
+                    processSectionForPlayer(player, section, currentPage);
                 });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).thenRun(() -> {
+            try {
+                // Actualizar inventario en el hilo principal - ahora que el inventario ya existe
+                if (super.getViewer() == player && super.inventory != null) {
+                    Bukkit.getScheduler().runTask(super.plugin, () -> {
+                        try {
+                            super.items.forEach((slot, item) -> {
+                                if (item != null && item.getItemStack() != null) {
+                                    super.inventory.setItem(slot, item.getItemStack());
+                                }
+                            });
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    });
+                } else {
+                    // Si el inventario sigue siendo null, intentar actualizar después de un tick
+                    if (super.inventory == null && super.plugin != null) {
+                        Bukkit.getScheduler().runTask(super.plugin, () -> {
+                            if (super.inventory != null && super.getViewer() == player) {
+                                super.items.forEach((slot, item) -> {
+                                    if (item != null && item.getItemStack() != null) {
+                                        super.inventory.setItem(slot, item.getItemStack());
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         });
     }
 
     private void processSectionForPlayer(Player player, PaginationSection section, int currentPage) {
-        // Aplicar filler de sección
-        applySectionFiller(player, section);
+        try {
+            // Aplicar filler de sección
+            applySectionFiller(player, section);
 
-        // Colocar items de la página
-        placeSectionItems(player, section, currentPage);
+            // Colocar items de la página
+            placeSectionItems(player, section, currentPage);
 
-        // Colocar botones de navegación
-        placeSectionNavigation(player, section, currentPage);
+            // Colocar botones de navegación
+            placeSectionNavigation(player, section, currentPage);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void applySectionFiller(Player player, PaginationSection section) {
         if (section.getFillerItem() == null) return;
 
         for (int slot : section.getSlots()) {
-            MenuItem filler = section.getFillerItem().clone();
-            if (filler.usesPlaceholders()) {
-                filler.updatePlaceholders(player);
+            try {
+                MenuItem filler = section.getFillerItem().clone();
+                if (filler.usesPlaceholders()) {
+                    filler.updatePlaceholders(player);
+                }
+                super.items.put(slot, filler);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-            super.items.put(slot, filler);
         }
     }
 
@@ -289,22 +335,27 @@ public class MultiPaginationMenu extends Menu {
         int[] slots = section.getSlots();
 
         for (int i = 0; i < pageItems.size() && i < slots.length; i++) {
-            int slot = slots[i];
-            MenuItem item = pageItems.get(i).clone();
-            int globalIndex = (currentPage - 1) * slots.length + i;
+            try {
+                int slot = slots[i];
+                MenuItem item = pageItems.get(i).clone();
+                int globalIndex = (currentPage - 1) * slots.length + i;
 
-            // Aplicar template de selección si es necesario
-            if (section.isItemSelected(globalIndex) && section.getSelectedItemTemplate() != null) {
-                item = section.getSelectedItemTemplate().clone();
+                // Aplicar template de selección si es necesario
+                if (section.isItemSelected(globalIndex) && section.getSelectedItemTemplate() != null) {
+                    item = section.getSelectedItemTemplate().clone();
+                }
+
+                if (item.usesPlaceholders()) {
+                    item.updatePlaceholders(player);
+                }
+
+                // Configurar click handler
+                setupItemClickHandler(item, section, globalIndex);
+                super.items.put(slot, item);
+
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-
-            if (item.usesPlaceholders()) {
-                item.updatePlaceholders(player);
-            }
-
-            // Configurar click handler
-            setupItemClickHandler(item, section, globalIndex);
-            super.items.put(slot, item);
         }
     }
 
@@ -312,14 +363,18 @@ public class MultiPaginationMenu extends Menu {
         Consumer<MenuClickInfo> originalHandler = item.getClickHandler();
 
         item.setClickHandler(clickInfo -> {
-            if (section.getOnItemSelect() != null) {
-                section.getOnItemSelect().accept(clickInfo, globalIndex);
-            }
-            section.setSelectedIndex(globalIndex);
-            updateMenuAsync(clickInfo.player());
+            try {
+                if (section.getOnItemSelect() != null) {
+                    section.getOnItemSelect().accept(clickInfo, globalIndex);
+                }
+                section.setSelectedIndex(globalIndex);
+                updateMenuAsync(clickInfo.player());
 
-            if (originalHandler != null) {
-                originalHandler.accept(clickInfo);
+                if (originalHandler != null) {
+                    originalHandler.accept(clickInfo);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         });
     }
@@ -329,22 +384,30 @@ public class MultiPaginationMenu extends Menu {
 
         // Botón anterior
         if (currentPage > 1 && section.getPreviousButton() != null) {
-            MenuItem prevButton = section.getPreviousButton().clone();
-            if (prevButton.usesPlaceholders()) {
-                prevButton.updatePlaceholders(player);
+            try {
+                MenuItem prevButton = section.getPreviousButton().clone();
+                if (prevButton.usesPlaceholders()) {
+                    prevButton.updatePlaceholders(player);
+                }
+                prevButton.setClickHandler(info -> updateSection(player, sectionName, currentPage - 1));
+                super.items.put(section.getPreviousButtonSlot(), prevButton);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-            prevButton.setClickHandler(info -> updateSection(player, sectionName, currentPage - 1));
-            super.items.put(section.getPreviousButtonSlot(), prevButton);
         }
 
         // Botón siguiente
         if (currentPage < section.getTotalPages() && section.getNextButton() != null) {
-            MenuItem nextButton = section.getNextButton().clone();
-            if (nextButton.usesPlaceholders()) {
-                nextButton.updatePlaceholders(player);
+            try {
+                MenuItem nextButton = section.getNextButton().clone();
+                if (nextButton.usesPlaceholders()) {
+                    nextButton.updatePlaceholders(player);
+                }
+                nextButton.setClickHandler(info -> updateSection(player, sectionName, currentPage + 1));
+                super.items.put(section.getNextButtonSlot(), nextButton);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-            nextButton.setClickHandler(info -> updateSection(player, sectionName, currentPage + 1));
-            super.items.put(section.getNextButtonSlot(), nextButton);
         }
     }
 
